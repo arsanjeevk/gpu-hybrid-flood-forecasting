@@ -1,0 +1,34 @@
+defaults:
+  - dem: synthetic_gurugram
+  - anuga: baseline
+  - jax_solver: shallow_water
+  - model: residual_cnn
+  - hybrid: coupled
+  - benchmark: frameworks
+  - viz: report
+  - experiment: baseline
+  - _self_
+
+project:
+  seed: 42
+  raw_data_dir: data/raw
+  interim_data_dir: data/interim
+  processed_data_dir: data/processed
+  output_dir: data/outputs
+
+data:
+  target_crs: EPSG:32643
+  validation_report: validation_report.json
+  rainfall:
+    filename: rainfall/rain.xlsx
+    sheet_name: 0
+    reference_start: "2000-01-01T00:00:00"
+    frequency: 1h
+    output_filename: rainfall_clean.parquet
+  mesh:
+    gap_relative_tolerance: 1.0e-9
+    degenerate_area_tolerance_m2: 1.0e-6
+
+hydra:
+  job:
+    chdir: false

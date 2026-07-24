@@ -1,0 +1,33 @@
+name: baseline
+
+inputs:
+  mesh_elements: data/interim/mesh_elements_epsg32643.gpkg
+  boundary_lines: data/interim/boundaries_epsg32643.gpkg
+  roughness_lulc: data/interim/roughness_epsg32643.gpkg
+  dem: data/synthetic_dem/dem.tif
+  rainfall: data/interim/rainfall_clean.parquet
+
+duration_s: 3600.0
+# Development/pipeline window only: this covers the first hour of the
+# 35-sample rainfall record and excludes its peak. Do not label this output as
+# a complete 45-year return-period event simulation.
+yieldstep_s: 10.0
+outputstep_s: 60.0
+cfl: 0.9
+flow_algorithm: DE1
+minimum_storable_height_m: 0.001
+initial_depth_m: 0.0
+
+boundary:
+  policy: all_reflective_unverified
+  match_tolerance_m: 1.0
+
+rainfall:
+  scenario: 45rp_rain
+  default_rate_mm_hr: 0.0
+
+outputs:
+  run_directory: data/outputs/anuga_runs
+  processed_netcdf: data/processed/anuga_baseline.nc
+  postprocess_grid_resolution_m: 50.0
+  dry_tolerance_m: 0.001

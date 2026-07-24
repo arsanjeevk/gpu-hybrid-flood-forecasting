@@ -1,0 +1,22 @@
+name: coupled_forecast
+
+inputs:
+  raw_jax: data/processed/jax_solver_raw.nc
+  anuga: data/processed/anuga_baseline.nc
+  residual_dataset: data/processed/residual_training_dataset.npz
+  checkpoint: data/outputs/jax_runs/residual_net_best.msgpack
+
+rollout:
+  start_time_s: null
+  end_time_s: null
+  max_physics_steps: 20000
+  max_substeps_per_interval: 64
+  # Selected on the chronological validation window using a rollout that
+  # accumulates corrections from t=0; stronger feedback caused drift.
+  correction_relaxation: 0.05
+  correction_clip_sigma: 5.0
+
+execution:
+  require_gpu: false
+
+output: data/processed/comparison_rollout.nc

@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+
+# Notebooks and editors
+.ipynb_checkpoints/
+.idea/
+.vscode/
+
+# Build and coverage
+build/
+dist/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Generated data and solver outputs
+outputs/
+data/interim/*
+data/synthetic_dem/*
+data/processed/*
+data/outputs/*
+!data/**/.gitkeep
+
+# ANUGA/JAX artifacts
+*.sww
+*.zarr/
+*.npz
+*.nc
+
+# LaTeX products
+report/*.aux
+report/*.bbl
+report/*.blg
+report/*.fdb_latexmk
+report/*.fls
+report/*.log
+report/*.out
+report/*.pdf
+report/*.toc

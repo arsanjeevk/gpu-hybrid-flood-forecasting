@@ -1,0 +1,60 @@
+{
+  "animation": {
+    "fps": 6.0,
+    "frame_count": 61,
+    "frame_stride": 1
+  },
+  "artifacts": [
+    "/home/sk/Projects/hybrid-flood-model/data/outputs/figures/flood_depth_comparison.pdf",
+    "/home/sk/Projects/hybrid-flood-model/data/outputs/figures/flood_depth_comparison.png",
+    "/home/sk/Projects/hybrid-flood-model/data/outputs/figures/hybrid_depth_error.pdf",
+    "/home/sk/Projects/hybrid-flood-model/data/outputs/figures/hybrid_depth_error.png",
+    "/home/sk/Projects/hybrid-flood-model/data/outputs/figures/monitoring_point_hydrographs.pdf",
+    "/home/sk/Projects/hybrid-flood-model/data/outputs/figures/monitoring_point_hydrographs.png",
+    "/home/sk/Projects/hybrid-flood-model/data/outputs/figures/dem_diagnostics.pdf",
+    "/home/sk/Projects/hybrid-flood-model/data/outputs/figures/dem_diagnostics.png",
+    "/home/sk/Projects/hybrid-flood-model/data/outputs/figures/manning_roughness.pdf",
+    "/home/sk/Projects/hybrid-flood-model/data/outputs/figures/manning_roughness.png",
+    "/home/sk/Projects/hybrid-flood-model/data/outputs/figures/rainfall_hyetograph.pdf",
+    "/home/sk/Projects/hybrid-flood-model/data/outputs/figures/rainfall_hyetograph.png",
+    "/home/sk/Projects/hybrid-flood-model/data/outputs/figures/residual_net_training.pdf",
+    "/home/sk/Projects/hybrid-flood-model/data/outputs/figures/residual_net_training.png",
+    "/home/sk/Projects/hybrid-flood-model/data/outputs/figures/flood_depth_evolution.mp4",
+    "/home/sk/Projects/hybrid-flood-model/data/outputs/figures/flood_depth_evolution.gif",
+    "/home/sk/Projects/hybrid-flood-model/data/outputs/figures/residual_correction_evolution.mp4",
+    "/home/sk/Projects/hybrid-flood-model/data/outputs/figures/residual_correction_evolution.gif"
+  ],
+  "key_times_s": [
+    1200.0,
+    2400.0,
+    3600.0
+  ],
+  "report_copies": [
+    "/home/sk/Projects/hybrid-flood-model/report/figures/flood_depth_comparison.pdf",
+    "/home/sk/Projects/hybrid-flood-model/report/figures/flood_depth_comparison.png",
+    "/home/sk/Projects/hybrid-flood-model/report/figures/hybrid_depth_error.pdf",
+    "/home/sk/Projects/hybrid-flood-model/report/figures/hybrid_depth_error.png",
+    "/home/sk/Projects/hybrid-flood-model/report/figures/monitoring_point_hydrographs.pdf",
+    "/home/sk/Projects/hybrid-flood-model/report/figures/monitoring_point_hydrographs.png",
+    "/home/sk/Projects/hybrid-flood-model/report/figures/dem_diagnostics.pdf",
+    "/home/sk/Projects/hybrid-flood-model/report/figures/dem_diagnostics.png",
+    "/home/sk/Projects/hybrid-flood-model/report/figures/manning_roughness.pdf",
+    "/home/sk/Projects/hybrid-flood-model/report/figures/manning_roughness.png",
+    "/home/sk/Projects/hybrid-flood-model/report/figures/rainfall_hyetograph.pdf",
+    "/home/sk/Projects/hybrid-flood-model/report/figures/rainfall_hyetograph.png",
+    "/home/sk/Projects/hybrid-flood-model/report/figures/residual_net_training.pdf",
+    "/home/sk/Projects/hybrid-flood-model/report/figures/residual_net_training.png",
+    "/home/sk/Projects/hybrid-flood-model/report/figures/flood_depth_evolution.mp4",
+    "/home/sk/Projects/hybrid-flood-model/report/figures/flood_depth_evolution.gif",
+    "/home/sk/Projects/hybrid-flood-model/report/figures/residual_correction_evolution.mp4",
+    "/home/sk/Projects/hybrid-flood-model/report/figures/residual_correction_evolution.gif"
+  ],
+  "source_inputs": {
+    "comparison": "/home/sk/Projects/hybrid-flood-model/data/processed/comparison_rollout.nc",
+    "dem": "/home/sk/Projects/hybrid-flood-model/data/synthetic_dem/dem.tif",
+    "rainfall": "/home/sk/Projects/hybrid-flood-model/data/interim/rainfall_clean.parquet",
+    "residual_dataset": "/home/sk/Projects/hybrid-flood-model/data/processed/residual_training_dataset.npz",
+    "residual_metadata": "/home/sk/Projects/hybrid-flood-model/data/processed/residual_training_dataset.json",
+    "training_log": "/home/sk/Projects/hybrid-flood-model/data/outputs/jax_runs/residual_net_training.csv"
+  }
+}

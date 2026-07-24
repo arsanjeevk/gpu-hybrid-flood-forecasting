@@ -1,0 +1,34 @@
+name: matched_residual_unet
+
+# Publication results must use a GPU visible to both frameworks. Set
+# require_gpu=false and allow_cpu=true only for a labelled implementation
+# smoke test; CPU results must not be used in the GPU comparison chapter.
+require_gpu: true
+allow_cpu: false
+
+input:
+  height: 128
+  width: 128
+  channels: 6
+batch_sizes: [1, 4, 8, 16]
+warmup_iterations: 10
+measured_iterations: 50
+
+torch:
+  compile: true
+  compile_mode: default
+
+profiling:
+  enabled: true
+  batch_size: 1
+  iterations: 10
+
+outputs:
+  directory: data/outputs/benchmarks
+  results_csv: jax_vs_pytorch.csv
+  latex_table: jax_vs_pytorch.tex
+  metadata: jax_vs_pytorch_metadata.json
+  profile_directory: profiles
+  profile_summary_csv: profile_operations.csv
+  figure_base: data/outputs/figures/jax_vs_pytorch_benchmark
+  report_directory: report/figures

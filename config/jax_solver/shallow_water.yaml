@@ -1,0 +1,45 @@
+name: shallow_water_2d
+dtype: float32
+resolution_m: 50.0
+duration_s: 3600.0
+# Must match the ANUGA development window. It currently excludes the rainfall
+# peak and is not a complete return-period-event simulation.
+output_interval_s: 60.0
+max_steps: 20000
+max_dt_s: 10.0
+cfl: 0.45
+gravity_m_s2: 9.81
+dry_tolerance_m: 0.0001
+flux: hll
+jit: true
+
+execution:
+  # Set true for report-quality GPU runs so an unavailable GPU is a hard error
+  # instead of an accidental CPU benchmark.
+  require_gpu: false
+
+inputs:
+  dem: data/synthetic_dem/dem.tif
+  roughness: data/interim/roughness_epsg32643.gpkg
+  domain: data/interim/domain_epsg32643.gpkg
+  rainfall: data/interim/rainfall_clean.parquet
+
+boundary:
+  policy: all_reflective
+
+rainfall:
+  scenario: 45rp_rain
+  default_rate_mm_hr: 0.0
+
+initial_condition:
+  depth_m: 0.0
+  x_velocity_m_s: 0.0
+  y_velocity_m_s: 0.0
+
+benchmark:
+  enabled: true
+  iterations: 100
+
+outputs:
+  netcdf: data/processed/jax_solver_raw.nc
+  run_directory: data/outputs/jax_runs

@@ -1,0 +1,20 @@
+name: publication_report
+
+inputs:
+  comparison: data/processed/comparison_rollout.nc
+  dem: data/synthetic_dem/dem.tif
+  residual_dataset: data/processed/residual_training_dataset.npz
+  residual_metadata: data/processed/residual_training_dataset.json
+  rainfall: data/interim/rainfall_clean.parquet
+  training_log: data/outputs/jax_runs/residual_net_training.csv
+
+rainfall_scenario: 45rp_rain
+key_times_s: [1200.0, 2400.0, 3600.0]
+
+animation:
+  fps: 6.0
+  frame_stride: 1
+
+outputs:
+  data_directory: data/outputs/figures
+  report_directory: report/figures

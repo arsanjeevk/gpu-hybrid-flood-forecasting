@@ -1,0 +1,4 @@
+name: baseline
+description: Baseline end-to-end comparison
+seed: 42
+tags: [anuga, jax, residual-cnn]

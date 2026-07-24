@@ -1,0 +1,57 @@
+name: residual_cnn
+framework: flax
+
+inputs:
+  anuga: data/processed/anuga_baseline.nc
+  jax: data/processed/jax_solver_raw.nc
+  roughness: data/interim/roughness_epsg32643.gpkg
+  rainfall: data/interim/rainfall_clean.parquet
+  rainfall_scenario: 45rp_rain
+
+dataset:
+  output: data/processed/residual_training_dataset.npz
+  train_fraction: 0.70
+  validation_fraction: 0.15
+  permanently_dry_threshold_m: 0.0001
+  # The activity/loss mask is derived from the training block only; validation
+  # and test inundation extents are never consulted during training setup.
+
+architecture:
+  depth: 3
+  channels: [16, 32, 64]
+  activation: gelu
+  kernel_size: 3
+  output_channels: 3
+
+training:
+  optimizer: adamw
+  learning_rate: 0.001
+  schedule: cosine
+  warmup_epochs: 2
+  weight_decay: 0.00001
+  gradient_clip_norm: 1.0
+  batch_size: 4
+  patch_size: 128
+  patches_per_sample: 4
+  epochs: 100
+  early_stopping:
+    patience: 10
+    min_delta: 0.000001
+  loss:
+    mse_weight: 1.0
+    mae_weight: 0.1
+    negative_depth_weight: 1.0
+
+evaluation:
+  # The current ANUGA reference peaks near 0.016 m, so 0.01 m yields a
+  # non-degenerate event/no-event score. Revisit for deeper calibrated runs.
+  flood_threshold_m: 0.01
+
+execution:
+  require_gpu: false
+
+outputs:
+  checkpoint: data/outputs/jax_runs/residual_net_best.msgpack
+  training_log: data/outputs/jax_runs/residual_net_training.csv
+  test_metrics: data/outputs/jax_runs/residual_net_test_metrics.json
+  run_metadata: data/outputs/jax_runs/residual_net_run.json

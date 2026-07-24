@@ -1,0 +1,39 @@
+name: synthetic_gurugram
+crs: EPSG:32643
+resolution_m: 5.0
+seed: 42
+
+inputs:
+  domain: data/interim/domain_epsg32643.gpkg
+  roughness: data/interim/roughness_epsg32643.gpkg
+
+terrain:
+  base_elevation_m: 225.0
+  relief_amplitude_m: 6.0
+  regional_gradient_drop_m: 8.0
+  drainage_azimuth_degrees: 225.0
+  octaves: 5
+  persistence: 0.5
+  lacunarity: 2.0
+  noise_scale_m: 2500.0
+  noise_sample_spacing_m: 100.0
+
+urban:
+  building_raise_m: 0.6
+  road_depression_m: 0.15
+  road_proxy_width_m: 10.0
+  water_lowering_m: 0.35
+  tree_raise_m: 0.05
+  intentional_depression_count: 8
+  intentional_depression_radius_m: 40.0
+  intentional_depression_depth_m: 0.3
+
+hydrology:
+  aggressiveness: selective
+  preserve_intentional_depressions: true
+  tolerance_m: 0.0001
+
+outputs:
+  dem: data/synthetic_dem/dem.tif
+  metadata: data/synthetic_dem/metadata.json
+  diagnostics: data/outputs/figures/dem_diagnostics.png
