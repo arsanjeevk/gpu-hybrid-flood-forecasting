@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import numpy as np
 import pytest
 
 from hybrid_flood.anuga_solver.boundary_conditions import (
-    UNVERIFIED_BOUNDARY_MESSAGE,
+    FINAL_REFLECTIVE_POLICY,
+    REFLECTIVE_ASSUMPTION,
     configure_boundary_conditions,
 )
 from hybrid_flood.anuga_solver.build_domain import MANNING_N_BY_LULC, build_domain
@@ -49,11 +51,14 @@ def test_real_domain_assigns_documented_roughness_lookup(real_domain) -> None:
     assert "Chow" in report["manning_reference"]
 
 
-def test_unverified_real_boundaries_warn_and_remain_reflective(real_domain, caplog) -> None:
+def test_final_real_boundary_policy_is_deliberately_reflective(real_domain, caplog) -> None:
     domain, _ = real_domain
+    caplog.set_level(logging.INFO)
     report = configure_boundary_conditions(domain)
-    assert report["warning"] == UNVERIFIED_BOUNDARY_MESSAGE
-    assert "BndTypeNo semantics are unverified" in caplog.text
+    assert report["policy"] == FINAL_REFLECTIVE_POLICY
+    assert report["modeling_assumption"] == REFLECTIVE_ASSUMPTION
+    assert REFLECTIVE_ASSUMPTION in caplog.text
+    assert "warning" not in report
     assert set(report["condition_by_tag"].values()) == {"Reflective_boundary"}
     assert "segment_2Dboundary_1" in report["boundary_tags"]
     assert "exterior" in report["boundary_tags"]

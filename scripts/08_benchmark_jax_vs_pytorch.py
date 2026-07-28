@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import hydra
+import numpy as np
 from hydra.utils import get_original_cwd
 from omegaconf import DictConfig, OmegaConf
 
@@ -114,11 +115,11 @@ def main(cfg: DictConfig) -> None:
         profile_batch = int(benchmark_cfg.profiling.batch_size)
         height, width, channels = input_shape
         key = jax.random.PRNGKey(int(cfg.project.seed))
-        jax_inputs = jax.random.normal(
-            key,
+        logical_inputs = np.random.default_rng(int(cfg.project.seed)).standard_normal(
             (profile_batch, height, width, channels),
-            dtype=jnp.float32,
+            dtype=np.float32,
         )
+        jax_inputs = jnp.asarray(logical_inputs)
         jax_params = flax_model.init(key, jax_inputs)["params"]
         torch_device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         torch_model = torch_factory().to(torch_device)
@@ -127,10 +128,9 @@ def main(cfg: DictConfig) -> None:
                 torch_model,
                 mode=str(benchmark_cfg.torch.compile_mode),
             )
-        torch_inputs = torch.randn(
-            (profile_batch, channels, height, width),
-            device=torch_device,
-        )
+        torch_inputs = torch.from_numpy(
+            np.ascontiguousarray(logical_inputs.transpose(0, 3, 1, 2))
+        ).to(torch_device)
         profile_directory = output_directory / str(benchmark_cfg.outputs.profile_directory)
         jax_profile = profile_jax_forward(
             flax_model,
@@ -196,7 +196,7 @@ def main(cfg: DictConfig) -> None:
 
     report_directory = _path(root, benchmark_cfg.outputs.report_directory)
     report_directory.mkdir(parents=True, exist_ok=True)
-    for artifact in (*figure_paths, latex_path):
+    for artifact in (*figure_paths, csv_path, latex_path):
         shutil.copy2(artifact, report_directory / artifact.name)
     LOGGER.info(
         "Benchmark complete: %s, %s, %s",

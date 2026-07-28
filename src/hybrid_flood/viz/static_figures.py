@@ -260,8 +260,9 @@ def plot_rainfall_hyetograph(
     output_base: str | Path,
     *,
     scenario: str,
+    simulation_duration_s: float | None = None,
 ) -> tuple[Path, Path]:
-    """Plot the cleaned rainfall intensity series with explicit units."""
+    """Plot rainfall and distinguish the simulated interval from the full record."""
     selected = rainfall.loc[rainfall["scenario"] == scenario].sort_values("timestamp")
     if selected.empty:
         raise ValueError(f"Rainfall scenario {scenario!r} was not found.")
@@ -273,20 +274,36 @@ def plot_rainfall_hyetograph(
         figsize=(DOUBLE_COLUMN_WIDTH, 2.4),
         constrained_layout=True,
     )
-    axis.step(
+    axis.plot(
         hours,
         selected["rainfall_mm_hr"],
-        where="post",
         color="#0072B2",
         linewidth=1.4,
     )
     axis.fill_between(
         hours,
         selected["rainfall_mm_hr"],
-        step="post",
         color="#56B4E9",
         alpha=0.45,
     )
+    if simulation_duration_s is not None:
+        if simulation_duration_s <= 0:
+            raise ValueError("Simulation duration must be positive when supplied.")
+        simulation_hours = simulation_duration_s / 3600.0
+        axis.axvspan(
+            0.0,
+            min(simulation_hours, float(hours.max())),
+            color="#E69F00",
+            alpha=0.16,
+            label=f"Simulated window (0--{simulation_hours:g} h)",
+        )
+        axis.axvline(
+            simulation_hours,
+            color="#D55E00",
+            linestyle="--",
+            linewidth=1.1,
+        )
+        axis.legend(loc="upper left")
     axis.set(
         title=f"Rainfall hyetograph — {scenario}",
         xlabel="Elapsed time (h)",

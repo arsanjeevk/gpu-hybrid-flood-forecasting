@@ -17,6 +17,7 @@ from hybrid_flood.jax_solver.runtime import configure_jax_runtime
 JAX_RUNTIME = configure_jax_runtime()
 
 import jax
+import numpy as np
 
 from hybrid_flood.ml.dataset import load_residual_dataset
 from hybrid_flood.ml.evaluate import evaluate_model
@@ -52,6 +53,17 @@ def main(cfg: DictConfig) -> None:
         )
 
     dataset = load_residual_dataset(_path(root, model_cfg.dataset.output))
+    expected_duration_s = float(cfg.jax_solver.duration_s)
+    if not np.isclose(
+        float(dataset.target_time_s[-1]),
+        expected_duration_s,
+        rtol=0.0,
+        atol=1.0e-6,
+    ):
+        raise ValueError(
+            "Residual dataset is stale or incomplete: it ends at "
+            f"{float(dataset.target_time_s[-1])} s, expected {expected_duration_s} s."
+        )
     model = model_from_config(model_cfg.architecture)
     result = train_model(
         model,

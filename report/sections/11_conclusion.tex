@@ -1,2 +1,29 @@
 \section{Conclusion}
 \label{sec:conclusion}
+
+This work established a reproducible end-to-end prototype linking validated
+GIS ingestion, deterministic synthetic terrain generation, an ANUGA numerical
+reference, an independent JAX shallow-water solver, residual learning, and an
+autoregressive physics--AI rollout.  The finalized ANUGA run conserved mass to
+a maximum relative error of \(8.52467\times10^{-10}\), while explicit tests
+verified JAX mass conservation, lake-at-rest balance, boundary behaviour, and
+toy-case consistency with ANUGA.
+
+On the nine held-out one-step transitions, residual correction reduced depth
+RMSE by 66.9010\%.  When corrections were fed back through the complete
+forecast, held-out depth RMSE remained 17.7405\% lower than pure JAX.  The
+coupling constrained the neural depth field to preserve the water volume
+produced by each physics interval.  These findings support the narrower claim
+that learned residual feedback improved agreement with ANUGA for this
+single-event, one-hour synthetic experiment.
+
+The evidence does not support claims of operational forecast accuracy,
+observational validation, improved thresholded flood extent, real-time
+performance, or GPU speedup.  CSI decreased slightly at the configured
+0.01~m threshold; the terrain and roughness are uncalibrated; all boundaries
+are reflectively closed by documented assumption; the rainfall peak lies
+outside the simulated window; and no NVIDIA GPU was available for the matched
+framework benchmark.  The immediate next experimental requirements are an
+observed, vertically referenced DEM and flood validation data, authoritative
+or measured boundary information, complete independent rainfall events, and
+execution of the locked benchmark on one GPU visible to both JAX and PyTorch.

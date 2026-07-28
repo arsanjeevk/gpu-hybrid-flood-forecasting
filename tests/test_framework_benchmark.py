@@ -13,6 +13,7 @@ import pytest
 torch = pytest.importorskip("torch")
 
 from hybrid_flood.benchmark.jax_vs_pytorch import (  # noqa: E402
+    _normalized_gpu_name,
     benchmark_frameworks,
     count_jax_parameters,
     format_latex_table,
@@ -96,6 +97,12 @@ def test_gpu_requirement_rejects_cpu_only_execution() -> None:
             measured_iterations=2,
             require_gpu=True,
         )
+
+
+def test_gpu_names_are_normalized_across_framework_labels() -> None:
+    assert _normalized_gpu_name("NVIDIA A100-SXM4-80GB") == _normalized_gpu_name(
+        "Tesla A100-SXM4-80GB"
+    )
 
 
 def test_latex_plot_and_trace_summary_exports(tmp_path) -> None:

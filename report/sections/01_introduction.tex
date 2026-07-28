@@ -1,2 +1,78 @@
 \section{Introduction}
 \label{sec:introduction}
+
+\subsection{Research context}
+
+This project investigates a computational workflow for urban flood forecasting
+that combines a numerical shallow-water model, a GPU-oriented implementation
+of the same governing physics, and a learned residual correction.  The
+research objective is not to replace the governing solver with a purely
+data-driven surrogate.  Instead, the architecture assigns distinct roles to
+three components: ANUGA provides a numerical reference solution, a custom JAX
+finite-volume solver provides the accelerated forecast trajectory, and a
+residual network learns systematic differences between their outputs.
+
+The emphasis is therefore on the interaction between physical modelling,
+numerical verification, and computational performance.  The repository is
+organised so that raw GIS and rainfall inputs remain read-only, derived
+datasets are reproducible, and report figures are stored with the generated
+model outputs.  Configuration is composed through Hydra-style component files,
+with a project-wide random seed of 42 and a common projected coordinate
+reference system of EPSG:32643.
+
+\subsection{Aim and objectives}
+
+The aim is to assess whether a JAX-based physics--AI workflow can support
+faster forward simulation while retaining agreement with the ANUGA numerical
+reference.  Within the implemented research design, this aim is
+decomposed into the following objectives:
+
+\begin{enumerate}
+    \item validate and reproject the available boundary, mesh, roughness, and
+    rainfall inputs without modifying the raw source files;
+    \item construct a deterministic synthetic terrain scenario because no
+    surveyed DEM is currently available;
+    \item establish an ANUGA numerical reference and an independently
+    implemented structured-grid JAX shallow-water solver;
+    \item test water conservation and preservation of a lake-at-rest state;
+    \item train a residual model on chronologically separated solver-pair data
+    and couple its corrections back into the JAX time integration; and
+    \item compare matched JAX and PyTorch residual networks under a controlled
+    GPU benchmarking protocol.
+\end{enumerate}
+
+\subsection{Scope and interpretation}
+
+The present repository supports a controlled methodological study rather than
+an operational forecast for Gurugram.  ANUGA is treated as a numerical
+reference, not observational ground truth.  No observed flood depths,
+discharges, surveyed elevations, or calibration measurements are currently
+included.  The available machine-learning dataset comprises 60 chronological
+transitions from one simulated event, so its held-out time block does not
+demonstrate generalisation to independent storms.
+
+Two further restrictions define the current evidential boundary.  First, the
+meaning of the source boundary attributes \texttt{BndTypeNo} and
+\texttt{ConstValue} could not be recovered from the available files.  A final
+methodological decision therefore treats every boundary as reflective.  This
+is a deliberate closed-domain simplification and is reported as a limitation,
+not as an interpretation of the source schema.  Second, the configured
+development simulation covers one hour of a 35-hour rainfall record and
+excludes the event peak.  Results from that window are suitable for testing
+the end-to-end pipeline, but not for characterising a complete return-period
+event.
+
+\subsection{Repository-based reproducibility}
+
+The reusable Python package and executable entry points are maintained
+separately under the source and scripts directories.  Raw inputs are separated
+from interim, synthetic, processed, and output products.  Numerical tests and
+the LaTeX report are also maintained in dedicated directories.  Python 3.11
+dependencies and optional benchmark dependencies are managed through
+\texttt{uv}.
+
+CUDA-enabled JAX packages are part of the environment, but actual GPU
+execution requires an exposed NVIDIA device and a working host driver.  The
+runtime can fall back explicitly to CPU for development, whereas report-quality
+performance measurements are configured to reject such fallback.  This
+separation prevents CPU timings from being presented as GPU evidence.

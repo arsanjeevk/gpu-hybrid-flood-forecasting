@@ -119,8 +119,14 @@ def temporal_split_indices(
     _validate_ratios(train_fraction, val_fraction)
     if sample_count < 3:
         raise ValueError("At least three transition samples are required for temporal splitting.")
-    train_end = max(1, int(np.floor(sample_count * train_fraction)))
-    val_end = max(train_end + 1, int(np.floor(sample_count * (train_fraction + val_fraction))))
+    # Guard mathematically integral products against downward binary roundoff:
+    # for example, 180 * 0.70 may otherwise be represented as 125.999....
+    guard = np.finfo(np.float64).eps * max(sample_count, 1) * 8.0
+    train_end = max(1, int(np.floor(sample_count * train_fraction + guard)))
+    val_end = max(
+        train_end + 1,
+        int(np.floor(sample_count * (train_fraction + val_fraction) + guard)),
+    )
     val_end = min(val_end, sample_count - 1)
     return (
         np.arange(0, train_end, dtype=np.int32),
@@ -348,6 +354,12 @@ def build_residual_dataset(
             "train": int(len(train)),
             "validation": int(len(val)),
             "test": int(len(test)),
+        },
+        "time_coverage": {
+            "input_start_s": float(times[0]),
+            "target_end_s": float(times[-1]),
+            "output_time_count": int(len(times)),
+            "transition_count": int(target_count),
         },
         "permanently_dry_threshold_m": permanently_dry_threshold_m,
         "loss_mask_basis": "maximum reference depth in training time block only",

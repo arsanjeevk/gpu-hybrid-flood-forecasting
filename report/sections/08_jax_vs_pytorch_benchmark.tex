@@ -1,2 +1,50 @@
 \section{JAX versus PyTorch Benchmark}
 \label{sec:jax-vs-pytorch}
+
+\subsection{Architecture matching}
+
+The benchmark implementation provides a PyTorch counterpart to the trained
+Flax residual network.  Both use three encoder levels with 16, 32, and 64
+channels; paired \(3\times3\) convolutions; GELU activation; stride-two
+downsampling; transposed-convolution upsampling; skip concatenation; and a
+zero-initialised \(1\times1\), three-channel output head.  Flax uses NHWC
+layout and PyTorch uses NCHW layout.  Layout conversion and host-to-device
+transfer are deliberately placed outside timed regions.  Automated
+architecture checks report 150,883 trainable scalar parameters for each
+implementation.
+
+\subsection{Benchmark protocol}
+
+The publication configuration specifies identical seeded float32 inputs with
+six channels and a spatial shape of 128 by 128 at batch sizes 1, 4, 8, and
+16.  For each batch size and framework, ten warm-up iterations precede 50
+measured iterations.  Forward inference and a forward--backward AdamW update
+are timed separately.  JAX compilation and PyTorch's compiled first iteration
+are recorded separately from steady-state measurements.  Every GPU interval
+is synchronised before the wall-clock measurement is closed; the output schema
+contains the sample mean and sample standard deviation rather than a single
+run.
+
+Each batch size runs in a fresh worker process.  This design avoids carrying
+JAX's process-level allocator peak from one batch into the next, while
+PyTorch's peak allocation is reset after warm-up.  JAX profiler traces and
+PyTorch Chrome traces are aggregated into a common operation-duration table.
+The configuration requires one NVIDIA GPU to be simultaneously visible to
+both frameworks and explicitly forbids automatic CPU substitution for
+publication results.
+
+\subsection{Execution status}
+
+The final benchmark was not executable on the present host.  JAX exposed only
+\texttt{CpuDevice(id=0)}, PyTorch reported
+\texttt{torch.cuda.is\_available()=False}, and the runtime probe found no
+NVIDIA CUDA driver library.  The benchmark therefore terminated before
+measuring batch size 1, as designed.  No results CSV, LaTeX table, profiling
+summary, or benchmark bar chart was generated.
+
+Consequently, this report makes no empirical claim about JAX-versus-PyTorch
+GPU speed, compilation cost, or memory use.  Completing this chapter requires
+running \texttt{scripts/08\_benchmark\_jax\_vs\_pytorch.py} with the locked
+environment on a host where both frameworks see the same NVIDIA GPU.  CPU
+smoke-test timings, even if produced, would not answer the stated GPU research
+question and are not substituted here.

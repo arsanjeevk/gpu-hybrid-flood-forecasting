@@ -89,6 +89,13 @@ def test_temporal_splits_are_contiguous_and_disjoint() -> None:
     assert not set(train) & set(validation)
     assert not set(validation) & set(test)
 
+    train, validation, test = temporal_split_indices(
+        180,
+        train_fraction=0.70,
+        val_fraction=0.15,
+    )
+    assert (len(train), len(validation), len(test)) == (126, 27, 27)
+
 
 def test_perfect_correction_has_unit_csi_and_zero_error() -> None:
     """Metric definitions should recognize an exact residual prediction."""

@@ -9,7 +9,10 @@ import jax.numpy as jnp
 import numpy as np
 
 from hybrid_flood.hybrid.coupled_forecast import apply_residual_correction
-from hybrid_flood.hybrid.rollout import run_comparison_rollout
+from hybrid_flood.hybrid.rollout import (
+    run_comparison_rollout,
+    select_relaxation_by_validation,
+)
 from hybrid_flood.jax_solver.boundary_conditions import all_reflective
 from hybrid_flood.jax_solver.numerics import SWEState
 from hybrid_flood.jax_solver.shallow_water_2d import (
@@ -20,6 +23,15 @@ from hybrid_flood.jax_solver.shallow_water_2d import (
 from hybrid_flood.ml.dataset import load_residual_dataset
 from hybrid_flood.ml.residual_net import ResidualUNet
 from hybrid_flood.ml.train import load_checkpoint
+
+
+def test_relaxation_selection_uses_minimum_validation_metric() -> None:
+    """Selection is deterministic and conservative when validation scores tie."""
+    selected, score = select_relaxation_by_validation(
+        {0.1: 0.02, 0.05: 0.01, 0.025: 0.01, 0.0: 0.03}
+    )
+    assert selected == 0.025
+    assert score == 0.01
 
 
 def test_neural_correction_preserves_physics_water_volume() -> None:

@@ -1,2 +1,65 @@
 \section{Discussion}
 \label{sec:discussion}
+
+\subsection{Interpretation of the hybrid correction}
+
+The principal positive result is internally consistent: the residual network
+reduced continuous depth and velocity errors for one-step predictions, and a
+relaxed autoregressive coupling retained a smaller but positive depth-RMSE
+improvement over the pure JAX trajectory.  The reduction from 66.9010\%
+one-step depth skill to 17.7405\% on the held-out rollout is expected evidence
+of error accumulation and distribution shift when corrected states are fed
+back into the physics solver.  It also justifies the conservative correction
+relaxation of 0.05 rather than direct unit-strength feedback.
+
+The depth-volume projection is a useful physical safeguard.  It prevents the
+network from improving RMSE merely by adding or removing net water after each
+physics interval.  Nevertheless, volume preservation alone does not enforce
+local momentum conservation, energy behaviour, or consistency with the
+shallow-water fluxes.  The 12.0528~m\(^3\) maximum hybrid--JAX volume
+difference is small relative to JAX volume, while both structured-grid
+trajectories retain a substantial gridded volume difference from ANUGA.  That
+difference can arise from discretisation, raster masking, forcing
+representation, or solver numerics and should be investigated before treating
+the models as interchangeable.
+
+\subsection{Continuous error versus flood extent}
+
+The one-step network improved RMSE and MAE but slightly reduced CSI at the
+0.01~m flood threshold.  These metrics answer different questions.  A
+continuous loss can favour broad reductions in small depth error, whereas CSI
+depends only on threshold crossings.  Here the corrected model removed many
+false positives but also removed most true positives.  Therefore, the current
+model cannot be claimed to improve binary flood-extent forecasting at the
+configured threshold.  Future training could include a differentiable
+extent-sensitive term, but its threshold and weight would be a new modelling
+choice requiring validation on deeper and independent events.
+
+\subsection{Hydraulic and data limitations}
+
+The terrain is synthetic and has no surveyed vertical datum.  LULC classes
+stand in for unresolved roads, buildings, and resistance, and the preserved
+waterlogging depressions are seeded scenarios rather than observed locations.
+No gauge levels, discharge measurements, observed inundation maps, or
+independent storm events are present.  ANUGA is consequently a numerical
+reference, not ground truth.
+
+The finalized reflective-boundary choice gives the three model branches a
+common comparison basis, but closes every perimeter route.  If
+\texttt{2Dboundary\_1} or another segment was intended as an outlet, the
+experiment underestimates outflow and can over-retain rainfall.  The one-hour
+window compounds this limitation: it covers only 2.9412\% of the rainfall
+record and ends before the recorded peak.  Maximum depths are only centimetric,
+which makes the 0.01~m extent score particularly sensitive.  Results therefore
+characterise an early-event, closed-domain pipeline experiment, not
+operational Gurugram flood skill or the complete stated return-period event.
+
+\subsection{Computational claims}
+
+JAX execution and residual training completed on CPU because no usable NVIDIA
+driver was available.  Although the solver and coupled loop are JIT- and
+scan-compatible, code structure alone is not evidence of GPU acceleration.
+The matched benchmark includes appropriate synchronisation, repeated
+measurements, separate compile cost, and peak-memory accounting, but its
+publication configuration has not run.  Claims of real-time performance or a
+JAX speed advantage must therefore wait for the same-GPU experiment.

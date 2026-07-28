@@ -46,6 +46,28 @@ class ComparisonRollout:
     output_path: Path
 
 
+def select_relaxation_by_validation(
+    candidate_metrics: dict[float, float],
+) -> tuple[float, float]:
+    """Select the finite candidate with minimum validation depth RMSE.
+
+    The caller is responsible for supplying metrics computed exclusively on
+    the chronological validation block. Ties are resolved toward the smaller
+    correction, which is the more conservative feedback setting.
+    """
+    if not candidate_metrics:
+        raise ValueError("At least one correction-relaxation candidate is required.")
+    finite = [
+        (float(score), float(relaxation))
+        for relaxation, score in candidate_metrics.items()
+        if np.isfinite(score) and float(relaxation) >= 0.0
+    ]
+    if not finite:
+        raise ValueError("No candidate produced a finite validation metric.")
+    score, relaxation = min(finite)
+    return relaxation, score
+
+
 def hybrid_inputs_from_dataset(dataset: ResidualDataset) -> HybridInputs:
     """Move static training normalization fields into a JAX pytree."""
     normalization = dataset.metadata["normalization"]

@@ -9,7 +9,7 @@ inputs:
   training_log: data/outputs/jax_runs/residual_net_training.csv
 
 rainfall_scenario: 45rp_rain
-key_times_s: [1200.0, 2400.0, 3600.0]
+key_times_s: [3600.0, 7200.0, 10800.0]
 
 animation:
   fps: 6.0

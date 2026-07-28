@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 
 import hydra
+import numpy as np
 from hydra.utils import get_original_cwd
 from omegaconf import DictConfig
 
@@ -35,6 +36,17 @@ def main(cfg: DictConfig) -> None:
         val_fraction=model_cfg.dataset.validation_fraction,
         permanently_dry_threshold_m=model_cfg.dataset.permanently_dry_threshold_m,
     )
+    expected_duration_s = float(cfg.jax_solver.duration_s)
+    if not np.isclose(
+        float(dataset.target_time_s[-1]),
+        expected_duration_s,
+        rtol=0.0,
+        atol=1.0e-6,
+    ):
+        raise ValueError(
+            "Solver artifacts are stale or incomplete: the residual dataset ends at "
+            f"{float(dataset.target_time_s[-1])} s, expected {expected_duration_s} s."
+        )
     output = save_residual_dataset(dataset, _path(root, model_cfg.dataset.output))
     LOGGER.info(
         "Saved %d chronological transitions (%d/%d/%d train/val/test) to %s",

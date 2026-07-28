@@ -20,11 +20,14 @@ incorporated into the report.
   reference-wet samples (`ANUGA depth > 1e-4 m`) so dry-background cells
   cannot conceal poor inundation performance. Flood-extent CSI is reported
   separately at the configured event threshold.
-- Boundary `BndTypeNo` semantics remain unverified, so all boundaries are
-  intentionally reflective and results must be labelled provisional.
-- The configured one-hour run samples only the start of the 35-hour rainfall
-  record and excludes its peak. It is a pipeline demonstration, not yet a
-  complete return-period event simulation.
+- The source `BndTypeNo`/`ConstValue` schema could not be recovered. A final
+  documented modelling decision therefore treats every domain boundary as
+  reflective (closed/no-flow). This is a known limitation, not a pending
+  implementation task; see `docs/decisions_log.md`.
+- The configured three-hour run samples 8.82% of the 35-hour rainfall record,
+  integrates 8.35497 mm under the linearly interpolated forcing, and excludes
+  its peak at hour 34. It is a development experiment, not a complete
+  return-period event simulation.
 
 ## JAX versus PyTorch benchmark protocol
 

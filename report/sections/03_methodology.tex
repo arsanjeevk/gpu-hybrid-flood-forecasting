@@ -1,2 +1,60 @@
 \section{Methodology}
 \label{sec:methodology}
+
+\subsection{Overall research design}
+
+The architecture follows three decisions recorded in the project decision
+log.  ANUGA is used as a numerical reference rather than as observational
+ground truth; a custom JAX finite-volume model supplies the accelerated physics
+solver; and a residual model corrects systematic solver discrepancies instead
+of replacing the physical model.  Both numerical solvers operate on the same
+synthetic, uncalibrated terrain scenario and assumed parameters.  This design
+supports controlled comparisons between model components while keeping the
+absence of field calibration explicit.
+
+The default Hydra composition selects the
+\texttt{synthetic\_gurugram} DEM configuration, the
+\texttt{baseline} ANUGA configuration, the
+\texttt{shallow\_water} JAX configuration, the
+\texttt{residual\_cnn} model, the \texttt{coupled} hybrid configuration, and
+the framework-benchmark and report-visualisation configurations.  A baseline
+experiment is selected by default.  Project-level paths distinguish raw,
+interim, processed, and output data, and the common project seed is 42.
+
+\subsection{Data and configuration controls}
+
+The raw-data directory is \path{data/raw}; derived validation and reprojection
+products are written to \path{data/interim}; solver-ready datasets are written
+to \path{data/processed}; and model runs and figures are written beneath
+\path{data/outputs}.  The configured spatial reference for derived GIS data is
+EPSG:32643.  Rainfall ingestion uses the first worksheet of
+\path{rainfall/rain.xlsx}, a reference start of
+\texttt{2000-01-01T00:00:00}, and an hourly frequency.  Mesh validation uses a
+relative gap tolerance of \(1.0\times10^{-9}\) and a degenerate-area tolerance
+of \(1.0\times10^{-6}\) square metres.
+
+\subsection{Software structure}
+
+The reusable package is divided by responsibility:
+
+\begin{description}
+    \item[\texttt{data}] ingestion, rainfall-window reporting, reprojection,
+    and mesh validation;
+    \item[\texttt{dem}] synthetic terrain construction, urban and
+    hydrological conditioning, and raster export;
+    \item[\texttt{anuga\_solver}] assembly, forcing, execution, and
+    post-processing of the numerical reference;
+    \item[\texttt{jax\_solver}] structured-grid shallow-water integration,
+    boundary handling, runtime selection, and step benchmarking;
+    \item[\texttt{ml}] paired data, the residual network, loss functions,
+    training, and evaluation;
+    \item[\texttt{hybrid}] coupled correction and forecast rollout;
+    \item[\texttt{benchmark}] matched JAX--PyTorch model comparison and
+    profiling; and
+    \item[\texttt{viz}] common styling, static plots, animations, and training
+    curves.
+\end{description}
+
+This section states the structural design only.  Phase-specific algorithms,
+parameters, diagnostics, and limitations are documented in the corresponding
+sections that follow.

@@ -93,6 +93,17 @@ def main(cfg: DictConfig) -> None:
     """Generate static and animated publication products and a manifest."""
     root = Path(get_original_cwd()).resolve()
     viz_cfg = cfg.viz
+    anuga_duration_s = float(cfg.anuga.duration_s)
+    jax_duration_s = float(cfg.jax_solver.duration_s)
+    if not np.isclose(anuga_duration_s, jax_duration_s, rtol=0.0, atol=1.0e-9):
+        raise ValueError(
+            "ANUGA and JAX simulation durations must match before report figures "
+            f"are generated ({anuga_duration_s} != {jax_duration_s})."
+        )
+    if any(
+        float(time_s) < 0.0 or float(time_s) > anuga_duration_s for time_s in viz_cfg.key_times_s
+    ):
+        raise ValueError("Every configured figure time must lie inside the simulation window.")
     inputs = viz_cfg.inputs
     data_directory = _path(root, viz_cfg.outputs.data_directory)
     report_directory = _path(root, viz_cfg.outputs.report_directory)
@@ -102,6 +113,16 @@ def main(cfg: DictConfig) -> None:
     LOGGER.info("Loading comparison rollout")
     with xr.open_dataset(_path(root, inputs.comparison)) as source:
         comparison = source[["depth"]].load()
+    if not np.isclose(
+        float(comparison.time.values[-1]),
+        anuga_duration_s,
+        rtol=0.0,
+        atol=1.0e-6,
+    ):
+        raise ValueError(
+            "Comparison rollout is stale or incomplete: it ends at "
+            f"{float(comparison.time.values[-1])} s, expected {anuga_duration_s} s."
+        )
 
     LOGGER.info("Generating solver comparison maps, errors, and hydrographs")
     artifacts.extend(
@@ -161,6 +182,7 @@ def main(cfg: DictConfig) -> None:
             pd.read_parquet(_path(root, inputs.rainfall)),
             data_directory / "rainfall_hyetograph",
             scenario=str(viz_cfg.rainfall_scenario),
+            simulation_duration_s=anuga_duration_s,
         )
     )
     artifacts.extend(
@@ -194,6 +216,7 @@ def main(cfg: DictConfig) -> None:
         "artifacts": [str(path) for path in artifacts],
         "report_copies": [str(path) for path in copies],
         "key_times_s": list(viz_cfg.key_times_s),
+        "simulation_duration_s": anuga_duration_s,
         "animation": {
             "fps": float(viz_cfg.animation.fps),
             "frame_stride": int(viz_cfg.animation.frame_stride),

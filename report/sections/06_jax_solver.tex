@@ -1,2 +1,106 @@
 \section{JAX Shallow-Water Solver}
 \label{sec:jax-solver}
+
+\subsection{Structured computational domain}
+
+The JAX solver operates on cell-averaged water depth \(h\) and momenta \(hu\)
+and \(hv\) on a regular Cartesian raster.  For the configured run, the domain,
+synthetic DEM, and LULC roughness data are resampled to a 50.0~m grid in the
+projected coordinate system of the domain.  Bounds are aligned outward to the
+grid spacing.  The DEM is bilinearly resampled, with nearest-neighbour and
+nearest-finite-cell fallbacks used only where the first interpolation leaves an
+in-domain value undefined.  Roughness values are rasterised from the
+\texttt{roughness} attribute.  Failure to assign a finite DEM or roughness
+value to any active cell raises an error.
+
+Raster rows are reversed after geospatial resampling so that both the array row
+index and the exported \(y\) coordinate increase northwards.  The production
+grid regression test passed with a shape of 517 by 551 cells, EPSG:32643, and
+finite bed and roughness values throughout the active mask.
+
+\subsection{Finite-volume update}
+
+Fluxes at cell faces are evaluated with the Harten--Lax--van Leer (HLL)
+approximate Riemann construction~\cite{HartenLaxVanLeer1983}.  For each
+coordinate direction, the implementation estimates the bounding wave speeds
+from the local normal velocity and \(\sqrt{gh}\), where the configured
+gravitational acceleration is \(9.81\)~m~s\(^{-2}\).  The left or right
+physical flux is selected when both waves travel in one direction; otherwise,
+the two-wave HLL intermediate flux is used.
+
+Bed variation is treated using hydrostatic reconstruction and paired
+face-source corrections following the well-balanced construction of
+Audusse et al.~\cite{AudusseEtAl2004}.  At each face, reconstructed depths are
+formed relative to the higher adjacent bed elevation and clipped at zero.
+The paired pressure corrections are then applied on the two sides of the
+face.  This implementation is intended to preserve a stationary free surface
+over variable bathymetry while maintaining non-negative reconstructed depth.
+
+The update adds spatially distributed rainfall directly to water depth.
+Rainfall records are required to carry \texttt{mm/hr} units and are converted
+to metres per second using a factor of \(10^{-3}/3600\).  Rates are linearly
+interpolated in simulation time and multiplied by the active-domain rainfall
+mask.  Manning friction is applied semi-implicitly to both momentum
+components after the flux and rainfall update.  Negative updated depth is
+clipped to zero, and momentum is set to zero wherever depth does not exceed the
+configured dry tolerance.
+
+\subsection{Time integration and configured experiment}
+
+The time step is selected from an unsplit two-dimensional wave-speed
+restriction using a configured CFL number of 0.45 and is capped at 10.0~s.
+The dry-depth tolerance is \(1.0\times10^{-4}\)~m.  The complete adaptive
+integration is represented by a JIT-compiled \texttt{jax.lax.scan} with a
+maximum of 20,000 steps; the implementation does not use a Python loop to
+advance physical time.  Requested output times truncate individual steps so
+that fields are recorded at the prescribed interval.
+
+The configured development run uses 32-bit floating-point arithmetic, starts
+from zero depth and zero velocity, and spans 3600.0~s with output every
+60.0~s.  The rainfall scenario identifier is
+\nolinkurl{45rp_rain}, and its default rate outside the record is
+0.0~mm~hr\(^{-1}\).  The configuration notes that this one-hour window
+excludes the rainfall peak and is not a complete event simulation.
+
+\subsection{Boundary treatment}
+
+The numerical core supports reflective and zero-gradient open ghost cells.
+At a reflective external boundary, the normal momentum changes sign while
+depth and tangential momentum are copied.  At an active--inactive interface
+inside the rectangular raster, the active state is mirrored and its normal
+momentum is reversed.  This retains the hydrostatic pressure contribution
+while cancelling mass transport across the irregular domain mask.
+
+The production configuration selects \texttt{all\_reflective}, matching the
+final ANUGA policy \texttt{all\_reflective\_final}.  No open segment is
+inferred from the unresolved source attributes.  This makes the two numerical
+models internally comparable, but does not validate the closed-boundary
+assumption against real drainage.
+
+\subsection{Output and numerical verification}
+
+The saved NetCDF dataset contains elevation, depth, both velocity components,
+and velocity magnitude on common \((\texttt{time},\texttt{y},\texttt{x})\)
+coordinates.  Out-of-domain cells are represented by missing values, and
+depth and velocity are labelled in metres and metres per second,
+respectively.
+
+All JAX solver regression tests passed in the validation run.  In the
+reflective flat-basin test, water volume at all requested times satisfied the
+implemented comparison tolerance of relative \(2.0\times10^{-7}\) and absolute
+\(1.0\times10^{-5}\) in grid-cell depth sum.  In the variable-bed
+lake-at-rest test, final free-surface elevation was compared with an absolute
+tolerance of \(2.0\times10^{-7}\)~m, while the maximum absolute value of each
+momentum component was required to remain below \(1.0\times10^{-6}\).  A
+separate irregular-mask test applied the same depth tolerance and momentum
+limits at internal solid walls.  All three tests passed.
+
+Cross-solver consistency was tested on a 10 by 10 flat basin with 10.0~m
+cells, reflective boundaries, no friction, a 20.0~s duration, and a local
+inflow rate of 0.005~m~s\(^{-1}\).  The JAX and ANUGA peak depths at the
+inflow location were required to agree within 15 per cent relative tolerance
+and 0.001~m absolute tolerance.  Arrival at a downstream test cell was defined
+by a 0.001~m depth threshold and required to agree within 3.0~s.  The test
+passed.  These checks detect major conservation, balance, boundary, and
+cross-solver inconsistencies; they do not constitute validation against an
+observed flood event.

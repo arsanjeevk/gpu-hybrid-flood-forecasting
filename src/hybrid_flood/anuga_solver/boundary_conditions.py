@@ -1,4 +1,13 @@
-"""Configure conservative ANUGA boundary conditions."""
+"""Apply the project's final all-reflective ANUGA boundary policy.
+
+The three supplied boundary segments are deliberately treated as closed,
+no-flow boundaries.  An investigation of the raw ``BndTypeNo`` and
+``ConstValue`` fields found no authoritative schema, legend, metadata, or
+recoverable source documentation.  The all-reflective treatment is therefore
+a permanent modelling assumption for this project and a known limitation,
+not an unresolved implementation task.  The evidence and decision are recorded
+in ``docs/decisions_log.md``.
+"""
 
 from __future__ import annotations
 
@@ -9,26 +18,22 @@ import anuga
 
 LOGGER = logging.getLogger(__name__)
 
-# TODO: verify BndTypeNo=2 semantics before the final report and replace this
-# all-reflective policy only after the supplied boundary schema is confirmed.
-UNVERIFIED_BOUNDARY_MESSAGE = (
-    "Boundary BndTypeNo semantics are unverified; applying reflective conditions "
-    "to every supplied segment and all remaining exterior edges. In particular, "
-    "2Dboundary_1 (BndTypeNo=2, ConstValue=216) is NOT treated as an outflow."
+FINAL_REFLECTIVE_POLICY = "all_reflective_final"
+REFLECTIVE_ASSUMPTION = (
+    "All supplied boundary segments and remaining exterior edges are reflective "
+    "by final documented modelling choice; see docs/decisions_log.md."
 )
 
 
 def configure_boundary_conditions(
     domain: anuga.Domain,
     *,
-    policy: str = "all_reflective_unverified",
+    policy: str = FINAL_REFLECTIVE_POLICY,
 ) -> dict[str, Any]:
-    """Apply the user-confirmed safe all-reflective interim policy."""
-    if policy != "all_reflective_unverified":
-        raise ValueError(
-            "Only the confirmed 'all_reflective_unverified' policy is currently supported."
-        )
-    LOGGER.warning(UNVERIFIED_BOUNDARY_MESSAGE)
+    """Apply reflective conditions to every exterior tag by final design."""
+    if policy != FINAL_REFLECTIVE_POLICY:
+        raise ValueError(f"Only the final {FINAL_REFLECTIVE_POLICY!r} policy is supported.")
+    LOGGER.info(REFLECTIVE_ASSUMPTION)
 
     tags = sorted(set(domain.boundary.values()))
     reflective = anuga.Reflective_boundary(domain)
@@ -37,5 +42,5 @@ def configure_boundary_conditions(
         "policy": policy,
         "boundary_tags": tags,
         "condition_by_tag": {tag: "Reflective_boundary" for tag in tags},
-        "warning": UNVERIFIED_BOUNDARY_MESSAGE,
+        "modeling_assumption": REFLECTIVE_ASSUMPTION,
     }

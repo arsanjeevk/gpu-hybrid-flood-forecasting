@@ -1,9 +1,9 @@
 name: shallow_water_2d
 dtype: float32
 resolution_m: 50.0
-duration_s: 3600.0
-# Must match the ANUGA development window. It currently excludes the rainfall
-# peak and is not a complete return-period-event simulation.
+duration_s: 10800.0
+# Must exactly match the ANUGA three-hour development window. It covers 8.82%
+# of the rainfall record, excludes the peak, and is not a complete event.
 output_interval_s: 60.0
 max_steps: 20000
 max_dt_s: 10.0
@@ -14,9 +14,8 @@ flux: hll
 jit: true
 
 execution:
-  # Set true for report-quality GPU runs so an unavailable GPU is a hard error
-  # instead of an accidental CPU benchmark.
-  require_gpu: false
+  # Publication runs must fail instead of silently falling back to CPU.
+  require_gpu: true
 
 inputs:
   dem: data/synthetic_dem/dem.tif

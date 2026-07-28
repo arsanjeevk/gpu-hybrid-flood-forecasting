@@ -1,2 +1,100 @@
 \section{ANUGA Baseline}
 \label{sec:anuga-baseline}
+
+\subsection{Domain construction and parameter assignment}
+
+ANUGA was used as the unstructured-grid numerical reference, rather than as
+observational ground truth.  The implementation solves the depth-integrated
+shallow-water equations by a finite-volume method on triangular cells
+\cite{MungkasiRoberts2012}.  The reprojected mesh contained 82,921 triangular
+elements and 41,888 unique nodes in EPSG:32643.  Triangle orientation and
+non-degeneracy were checked before the connectivity was passed to
+\texttt{anuga.Domain}.
+
+The synthetic DEM was bilinearly sampled at triangle centroids, with
+nearest-cell fallback only where bilinear interpolation was undefined.  The
+assigned centroid elevations ranged from 216.6333 to 233.4016~m.  Initial
+stage was set equal to bed elevation, corresponding to the configured initial
+depth of 0.0~m and zero momentum.
+
+Manning resistance was assigned by spatially joining each centroid to the LULC
+layer.  The documented effective values were 0.030 for Water, 0.100 for
+Built-up, 0.025 for Bare/Open, 0.050 for Low vegetation, and 0.120 for Tree
+cover.  These values are traceable to the ranges compiled by
+Chow~\cite{Chow1959}, but remain LULC-scale assumptions rather than calibrated
+site coefficients.  The source \texttt{roughness} field was required to match
+the lookup before assignment.  The element counts were 1,059 Water, 30,606
+Built-up, 1,632 Bare/Open, 38,401 Low vegetation, and 11,223 Tree-cover
+elements.
+
+\subsection{Numerical and forcing configuration}
+
+The final run used ANUGA's \texttt{DE1} flow algorithm, a CFL number of 0.9,
+a 10.0~s yield interval, a 60.0~s output interval, and a minimum storable
+height of 0.001~m.  Simulation duration was 3600.0~s.  Rainfall was applied
+uniformly to all domain triangles through a rate operator.  The cleaned input
+was checked to have units of mm~hr\(^{-1}\) and converted to m~s\(^{-1}\)
+with the exact factor \(10^{-3}/3600\).
+
+The source rainfall record contained 35 hourly samples over 122,400~s.  The
+one-hour simulation used only 2.9412\% of that record and integrated
+2.78499~mm of rainfall.  It did not include the record maximum of
+12.141~mm~hr\(^{-1}\), which occurs at 122,400~s.  Accordingly, the run is a
+development-window experiment and not a simulation of the complete
+\texttt{45rp\_rain} record.
+
+\subsection{Final boundary policy}
+
+All supplied boundary segments and all unmatched exterior mesh edges were
+assigned ANUGA reflective boundaries.  Segment tagging used a 1.0~m midpoint
+matching tolerance and associated 6, 65, and 10 exterior edges with
+\texttt{2Dboundary\_1}, \texttt{2Dboundary\_3}, and
+\texttt{2Dboundary\_4}, respectively.  A further 772 exterior edges retained
+the generic exterior tag.  Every tag received the same no-normal-flow
+condition under the finalized policy
+\texttt{all\_reflective\_final}.
+
+\subsection{Boundary Condition Limitations}
+
+The raw attribute schema could not be authoritatively resolved.  The three
+records contained
+\((\texttt{BndTypeNo},\texttt{ConstValue})=(2,216)\) for
+\texttt{2Dboundary\_1} and \((4,0)\) for each of
+\texttt{2Dboundary\_3} and \texttt{2Dboundary\_4}.  Inspection of all 47 DBF
+fields, available sidecars, repository history, geometry, and elevations
+provided no legend or numeric-code mapping.  Field names suggested a possible
+DHI MIKE-family export, and the value 216 could plausibly be associated with a
+constant-level definition, but neither hypothesis was supported by an
+available project database or authoritative schema.  It was therefore not
+used to infer boundary behaviour.
+
+The reflective treatment is a conservative, documented simplification rather
+than a recovered source-data meaning.  In particular, the short
+\texttt{2Dboundary\_1} segment lies on the western to north-western perimeter,
+has a synthetic-DEM range of 221.975--222.422~m, and carries a distinct
+\texttt{ConstValue}.  If that segment was originally intended to permit
+drainage, closing it necessarily underestimates boundary outflow and retains
+water that would otherwise leave the domain; this could overestimate local
+storage or ponding.  The direction and magnitude of the real hydraulic effect
+cannot be quantified without the missing schema and boundary observations.
+Internal consistency is maintained because ANUGA, JAX, and the hybrid rollout
+all use the same closed policy.
+
+\subsection{Output and run diagnostics}
+
+The finalized run wrote
+\texttt{run\_20260727T100639155109Z.sww} and a per-yield mass-balance log
+containing 361 records.  Wall-clock runtime was 57.0764~s.  The maximum
+absolute mass-balance error was
+\(7.23468\times10^{-5}\)~m\(^3\), the maximum relative error was
+\(8.52467\times10^{-10}\), and the final error was
+\(-5.09780\times10^{-5}\)~m\(^3\).  The maximum absolute recorded boundary
+flux was \(1.71811\times10^{-11}\)~m\(^3\), consistent with the reflective
+configuration to numerical precision.
+
+SWW output was barycentrically interpolated to the common 50.0~m comparison
+grid and saved as \texttt{data/processed/anuga\_baseline.nc}.  The resulting
+517 by 551 grid contained 172,841 finite in-mesh cells and 61 output times.
+Maximum depth and velocity in this processed development run were
+0.0159302~m and 0.106823~m~s\(^{-1}\), respectively.  No non-finite values
+were present within the processed mesh mask.

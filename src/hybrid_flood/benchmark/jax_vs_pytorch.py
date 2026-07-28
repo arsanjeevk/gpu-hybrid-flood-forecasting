@@ -87,6 +87,37 @@ def _jax_memory(device: jax.Device) -> tuple[float, str]:
     return float("nan"), "JAX allocator did not expose memory bytes"
 
 
+def _normalized_gpu_name(value: str) -> str:
+    """Normalize framework-specific GPU labels for a same-device sanity check."""
+    normalized = "".join(character for character in value.lower() if character.isalnum())
+    for prefix in ("nvidiacorporation", "nvidia", "tesla"):
+        if normalized.startswith(prefix):
+            normalized = normalized[len(prefix) :]
+    return normalized
+
+
+def _verify_same_gpu(jax_device: jax.Device, torch_device_index: int = 0) -> None:
+    """Reject a comparison when framework device-zero identities disagree."""
+    jax_index = int(getattr(jax_device, "id", -1))
+    if jax_index != torch_device_index:
+        raise RuntimeError(
+            f"JAX selected logical GPU {jax_index}, but PyTorch selected "
+            f"cuda:{torch_device_index}; the benchmark requires the same GPU."
+        )
+    jax_name = str(getattr(jax_device, "device_kind", jax_device))
+    torch_name = torch.cuda.get_device_name(torch_device_index)
+    normalized_jax = _normalized_gpu_name(jax_name)
+    normalized_torch = _normalized_gpu_name(torch_name)
+    if (
+        not normalized_jax
+        or not normalized_torch
+        or (normalized_jax not in normalized_torch and normalized_torch not in normalized_jax)
+    ):
+        raise RuntimeError(
+            f"JAX and PyTorch GPU identities disagree: JAX={jax_name!r}, PyTorch={torch_name!r}."
+        )
+
+
 def _measure_jax(
     function: Callable[..., Any],
     arguments: tuple[Any, ...],
@@ -147,7 +178,7 @@ def benchmark_jax_model(
             framework="JAX",
             framework_version=jax.__version__,
             device_type=device.platform,
-            device_name=str(device),
+            device_name=str(getattr(device, "device_kind", device)),
             batch_size=batch_size,
             input_height=height,
             input_width=width,
@@ -197,7 +228,7 @@ def benchmark_jax_model(
             framework="JAX",
             framework_version=jax.__version__,
             device_type=device.platform,
-            device_name=str(device),
+            device_name=str(getattr(device, "device_kind", device)),
             batch_size=batch_size,
             input_height=height,
             input_width=width,
@@ -387,6 +418,8 @@ def benchmark_frameworks(
             "GPU unavailable and CPU fallback was not explicitly allowed. "
             "Set allow_cpu=true only for a labelled smoke test, not report results."
         )
+    if gpu_ready:
+        _verify_same_gpu(jax_gpu, 0)
     torch_device = torch.device("cuda:0" if gpu_ready else "cpu")
 
     records: list[BenchmarkRecord] = []
@@ -418,6 +451,15 @@ def benchmark_frameworks(
     frame = pd.DataFrame(asdict(record) for record in records)
     if frame.groupby("framework")["parameter_count"].first().nunique() != 1:
         raise RuntimeError("JAX and PyTorch parameter counts differ; benchmark is not fair.")
+    if require_gpu and not np.isfinite(frame["peak_memory_mb"]).all():
+        unavailable = frame.loc[
+            ~np.isfinite(frame["peak_memory_mb"]),
+            ["framework", "batch_size", "operation", "memory_measurement"],
+        ]
+        raise RuntimeError(
+            "The GPU backend did not expose a peak-memory measurement for every "
+            f"configuration:\n{unavailable.to_string(index=False)}"
+        )
     return frame.sort_values(["operation", "batch_size", "framework"]).reset_index(drop=True)
 
 
@@ -489,6 +531,15 @@ def benchmark_frameworks_isolated(
     )
     if frame.groupby("framework")["parameter_count"].first().nunique() != 1:
         raise RuntimeError("JAX and PyTorch parameter counts differ; benchmark is not fair.")
+    if require_gpu and not np.isfinite(frame["peak_memory_mb"]).all():
+        unavailable = frame.loc[
+            ~np.isfinite(frame["peak_memory_mb"]),
+            ["framework", "batch_size", "operation", "memory_measurement"],
+        ]
+        raise RuntimeError(
+            "The isolated GPU benchmark lacks a peak-memory result:\n"
+            f"{unavailable.to_string(index=False)}"
+        )
     return frame.sort_values(["operation", "batch_size", "framework"]).reset_index(drop=True)
 
 

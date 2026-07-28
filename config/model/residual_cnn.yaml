@@ -43,12 +43,12 @@ training:
     negative_depth_weight: 1.0
 
 evaluation:
-  # The current ANUGA reference peaks near 0.016 m, so 0.01 m yields a
-  # non-degenerate event/no-event score. Revisit for deeper calibrated runs.
+  # Frozen before the three-hour publication run to avoid choosing a threshold
+  # after seeing its test results. Report sensitivity separately if needed.
   flood_threshold_m: 0.01
 
 execution:
-  require_gpu: false
+  require_gpu: true
 
 outputs:
   checkpoint: data/outputs/jax_runs/residual_net_best.msgpack

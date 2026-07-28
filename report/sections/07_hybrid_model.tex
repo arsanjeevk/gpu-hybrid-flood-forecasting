@@ -1,2 +1,97 @@
 \section{Hybrid Physics--AI Model}
 \label{sec:hybrid-model}
+
+\subsection{Residual-learning dataset}
+
+ANUGA and JAX fields were aligned on their common 50.0~m grid and matching
+60.0~s output times.  For each transition from \(t\) to \(t+1\), the target
+was the physical-unit residual
+\[
+  \mathbf{r}_{t+1}
+  = \mathbf{q}^{\mathrm{ANUGA}}_{t+1}
+  - \mathbf{q}^{\mathrm{JAX}}_{t+1},
+  \qquad
+  \mathbf{q}=(h,u,v).
+\]
+The six input channels were JAX depth, \(x\)-velocity, and \(y\)-velocity at
+time \(t\), rainfall at \(t\), terrain, and Manning roughness.  Dynamic and
+static channels were normalised using statistics recorded with the dataset;
+the residual remained in physical units at the network output.
+
+The 60 transitions were divided into contiguous chronological blocks of 42
+training, 9 validation, and 9 test samples, corresponding to configured
+fractions of 0.70 and 0.15 before integer allocation.  Timesteps were not
+randomly shuffled because adjacent flood states are strongly autocorrelated
+and would otherwise cross the evaluation boundary.  The loss mask was derived
+only from the maximum ANUGA depth in the training block, using the configured
+\(10^{-4}\)~m threshold.  It retained 171,619 of the 172,841 common-domain
+cells.  This procedure reduces direct temporal leakage, but the test block
+still belongs to the same simulated rainfall event and is not independent
+event validation.
+
+\subsection{Network and objective}
+
+The residual predictor is a Flax encoder--decoder with U-Net-style skip
+connections~\cite{RonnebergerEtAl2015}.  The configured depth was three, with
+16, 32, and 64 channels, \(3\times3\) convolutions, GELU activations, and
+three output channels.  Stride-two convolutions perform downsampling;
+transposed convolutions perform upsampling; and a zero-initialised
+\(1\times1\) convolution produces the residual.  Training used
+128 by 128 spatial patches, four sampled patches per training timestep, and a
+batch size of four.
+
+For target residual \(\mathbf r\), prediction \(\widehat{\mathbf r}\), and
+training residual standard deviations \(\mathbf s\), the data terms were
+computed on the activity mask as
+\[
+  L_{\mathrm{data}}
+  = 1.0\,\operatorname{MSE}
+    \left((\widehat{\mathbf r}-\mathbf r)/\mathbf s\right)
+  +0.1\,\operatorname{MAE}
+    \left((\widehat{\mathbf r}-\mathbf r)/\mathbf s\right).
+\]
+An additional unit-weight penalty applied the squared rectified negative part
+of the corrected depth, normalised by the depth residual scale.  Permanently
+dry background cells were excluded from all three terms.
+
+Optimisation used AdamW~\cite{LoshchilovHutter2019} with an initial learning
+rate of 0.001, cosine decay, two warm-up epochs, weight decay
+\(10^{-5}\), and gradient-norm clipping at 1.0.  Training was configured for
+100 epochs with validation early stopping of patience 10 and minimum
+improvement \(10^{-6}\).  The completed CPU run reached all 100 epochs; the
+selected checkpoint was epoch 94 with a normalised validation objective of
+0.855199.  This dimensionless training objective is not directly comparable
+with physical-unit RMSE.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.78\textwidth]{figures/residual_net_training.pdf}
+    \caption{Training and validation objective for the final residual-network
+    run.  The vertical selection marker identifies the checkpoint retained by
+    validation loss.}
+    \label{fig:residual-training}
+\end{figure}
+
+\subsection{Autoregressive coupling}
+
+For every 60.0~s correction interval, the structured finite-volume solver
+first advanced adaptively from the current corrected state.  The residual
+network then evaluated features assembled from the state at the beginning of
+that interval, consistent with the one-step training semantics.  Residuals
+were clipped independently at five training standard deviations and applied
+with a validation-selected relaxation factor of 0.05.
+
+Depth was clipped to non-negative values.  The provisional corrected depth
+field was then scaled over the active domain to preserve the total water
+volume produced by that physics interval.  Thus, the neural model could
+redistribute depth but could not introduce an unmodelled net source or sink.
+Corrected velocities were converted back to momentum, with zero momentum in
+cells below the JAX dry threshold of \(10^{-4}\)~m.  Both the interval
+substeps and the outer correction loop use \texttt{jax.lax.scan}; the full
+rollout is JIT-compatible and does not require per-step host transfers.
+
+The saved comparison product contains ANUGA, pure JAX, and hybrid fields on a
+common \((\texttt{source},\texttt{time},\texttt{y},\texttt{x})\) grid.  The
+relaxation parameter was selected on the chronological validation window, so
+the held-out test-window results are reported separately in
+Section~\ref{sec:results}.

@@ -7,10 +7,10 @@ inputs:
   dem: data/synthetic_dem/dem.tif
   rainfall: data/interim/rainfall_clean.parquet
 
-duration_s: 3600.0
-# Development/pipeline window only: this covers the first hour of the
-# 35-sample rainfall record and excludes its peak. Do not label this output as
-# a complete 45-year return-period event simulation.
+duration_s: 10800.0
+# Three-hour development experiment: this covers 8.82% of the 35-hour record,
+# integrates 8.35497 mm under the linearly interpolated forcing, and excludes
+# the peak at hour 34. Do not label it as a complete return-period event.
 yieldstep_s: 10.0
 outputstep_s: 60.0
 cfl: 0.9
@@ -19,7 +19,9 @@ minimum_storable_height_m: 0.001
 initial_depth_m: 0.0
 
 boundary:
-  policy: all_reflective_unverified
+  # Final documented modelling assumption: all supplied segments and all
+  # remaining exterior edges are closed/no-flow boundaries.
+  policy: all_reflective_final
   match_tolerance_m: 1.0
 
 rainfall:

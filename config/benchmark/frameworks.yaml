@@ -24,11 +24,11 @@ profiling:
   iterations: 10
 
 outputs:
-  directory: data/outputs/benchmarks
+  directory: data/outputs/figures
   results_csv: jax_vs_pytorch.csv
   latex_table: jax_vs_pytorch.tex
   metadata: jax_vs_pytorch_metadata.json
-  profile_directory: profiles
+  profile_directory: benchmark_profiles
   profile_summary_csv: profile_operations.csv
   figure_base: data/outputs/figures/jax_vs_pytorch_benchmark
   report_directory: report/figures

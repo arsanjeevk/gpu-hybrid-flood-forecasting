@@ -11,12 +11,18 @@ rollout:
   end_time_s: null
   max_physics_steps: 20000
   max_substeps_per_interval: 64
-  # Selected on the chronological validation window using a rollout that
-  # accumulates corrections from t=0; stronger feedback caused drift.
+  # Select the feedback strength using only the chronological validation
+  # interval. Each candidate is rolled forward from t=0 so accumulated
+  # autoregressive error is represented; the held-out test block is excluded.
+  relaxation_selection:
+    enabled: true
+    candidates: [0.0, 0.01, 0.025, 0.05, 0.1]
+    metric: validation_hybrid_depth_rmse
+  # Used only when relaxation_selection.enabled=false.
   correction_relaxation: 0.05
   correction_clip_sigma: 5.0
 
 execution:
-  require_gpu: false
+  require_gpu: true
 
 output: data/processed/comparison_rollout.nc
