@@ -1,0 +1,11 @@
+name: google_colab_t4
+required_gpu_name: T4
+gpu_memory_gib: 15.0
+require_cuda: true
+
+# JAX and PyTorch coexist on one 16 GiB-class accelerator. JAX preallocation
+# is disabled in the launch scripts so it cannot reserve most GPU memory before
+# the PyTorch model is initialized.
+jax_preallocate: false
+minimum_free_storage_gib: 12.0
+

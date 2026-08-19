@@ -1,12 +1,12 @@
 name: publication_report
 
 inputs:
-  comparison: data/processed/comparison_rollout.nc
+  comparison: data/processed/comparison_v1_v2.nc
   dem: data/synthetic_dem/dem.tif
   residual_dataset: data/processed/residual_training_dataset.npz
   residual_metadata: data/processed/residual_training_dataset.json
   rainfall: data/interim/rainfall_clean.parquet
-  training_log: data/outputs/jax_runs/residual_net_training.csv
+  training_log: data/outputs/torch_runs/residual_net_training.csv
 
 rainfall_scenario: 45rp_rain
 key_times_s: [3600.0, 7200.0, 10800.0]

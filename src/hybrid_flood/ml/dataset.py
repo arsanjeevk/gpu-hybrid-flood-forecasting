@@ -1,4 +1,4 @@
-"""Build temporally separated ANUGA-to-JAX residual-learning samples.
+"""Build temporally separated ANUGA-to-forecast residual-learning samples.
 
 Samples are split into contiguous train, validation, and test blocks in time,
 never by randomly shuffling timesteps. Consecutive flood states are strongly
@@ -240,7 +240,7 @@ def _aligned_anuga(anuga: xr.Dataset, jax_raw: xr.Dataset) -> xr.Dataset:
 
 def build_residual_dataset(
     anuga_path: str | Path,
-    jax_path: str | Path,
+    forecast_path: str | Path,
     roughness_path: str | Path,
     rainfall_path: str | Path,
     *,
@@ -252,17 +252,20 @@ def build_residual_dataset(
     """Build physical residual targets for transitions from time ``t`` to ``t+1``."""
     if permanently_dry_threshold_m < 0:
         raise ValueError("The permanently-dry threshold cannot be negative.")
-    with xr.open_dataset(anuga_path) as anuga_source, xr.open_dataset(jax_path) as jax_source:
-        anuga = _aligned_anuga(anuga_source, jax_source)
-        times = np.asarray(jax_source.time.values, dtype=np.float64)
+    with (
+        xr.open_dataset(anuga_path) as anuga_source,
+        xr.open_dataset(forecast_path) as forecast_source,
+    ):
+        anuga = _aligned_anuga(anuga_source, forecast_source)
+        times = np.asarray(forecast_source.time.values, dtype=np.float64)
         if len(times) < 4 or not np.all(np.diff(times) > 0):
             raise ValueError("Solver time coordinates must contain at least four increasing times.")
 
-        jax_state = np.stack(
+        forecast_state = np.stack(
             (
-                jax_source["depth"].values,
-                jax_source["x_velocity"].values,
-                jax_source["y_velocity"].values,
+                forecast_source["depth"].values,
+                forecast_source["x_velocity"].values,
+                forecast_source["y_velocity"].values,
             ),
             axis=-1,
         ).astype(np.float32)
@@ -274,22 +277,22 @@ def build_residual_dataset(
             ),
             axis=-1,
         ).astype(np.float32)
-        terrain = np.asarray(jax_source["elevation"].values, dtype=np.float32)
+        terrain = np.asarray(forecast_source["elevation"].values, dtype=np.float32)
         reference_terrain = np.asarray(anuga["elevation"].values, dtype=np.float32)
-        x = np.asarray(jax_source.x.values, dtype=np.float64)
-        y = np.asarray(jax_source.y.values, dtype=np.float64)
-        crs = str(jax_source.attrs.get("crs"))
+        x = np.asarray(forecast_source.x.values, dtype=np.float64)
+        y = np.asarray(forecast_source.y.values, dtype=np.float64)
+        crs = str(forecast_source.attrs.get("crs"))
 
     domain_mask = np.isfinite(terrain) & np.isfinite(reference_terrain)
-    finite_dynamic = np.isfinite(jax_state).all(axis=(0, 3)) & np.isfinite(reference_state).all(
-        axis=(0, 3)
-    )
+    finite_dynamic = np.isfinite(forecast_state).all(axis=(0, 3)) & np.isfinite(
+        reference_state
+    ).all(axis=(0, 3))
     domain_mask &= finite_dynamic
     if not domain_mask.any():
         raise ValueError("ANUGA and JAX products have no common finite domain cells.")
 
-    residual = reference_state[1:] - jax_state[1:]
-    state_t = jax_state[:-1]
+    residual = reference_state[1:] - forecast_state[1:]
+    state_t = forecast_state[:-1]
     target_count = len(times) - 1
     train, val, test = temporal_split_indices(
         target_count,
@@ -338,14 +341,14 @@ def build_residual_dataset(
     target_std = np.maximum(target_std, np.float32(1.0e-6))
 
     metadata: dict[str, Any] = {
-        "description": "ANUGA minus raw-JAX one-step residual correction dataset",
+        "description": "ANUGA minus V1 NumPy forecast one-step residual dataset",
         "crs": crs,
         "input_channels": list(INPUT_CHANNELS),
         "target_channels": list(TARGET_CHANNELS),
         "state_units": ["m", "m/s", "m/s"],
         "target_units": ["m", "m/s", "m/s"],
         "rainfall_units": "mm/hr",
-        "sample_semantics": "state and rainfall at t predict ANUGA-JAX residual at t+1",
+        "sample_semantics": "forecast state and rainfall at t predict ANUGA residual at t+1",
         "split_policy": (
             "disjoint contiguous chronological blocks; no temporal shuffling; "
             "single-event development holdout, not independent-event validation"
@@ -377,7 +380,8 @@ def build_residual_dataset(
         },
         "sources": {
             "anuga": str(Path(anuga_path).resolve()),
-            "jax": str(Path(jax_path).resolve()),
+            "forecast": str(Path(forecast_path).resolve()),
+            "forecast_backend": "numpy_v1",
             "roughness": str(Path(roughness_path).resolve()),
             "rainfall": str(Path(rainfall_path).resolve()),
             "rainfall_scenario": rainfall_scenario,
@@ -386,7 +390,7 @@ def build_residual_dataset(
     return ResidualDataset(
         state_t=state_t,
         target_residual=residual,
-        raw_depth_t_plus_1=jax_state[1:, :, :, 0],
+        raw_depth_t_plus_1=forecast_state[1:, :, :, 0],
         rainfall_t_mm_hr=rainfall,
         terrain_standardized=terrain_standardized,
         roughness_standardized=roughness_standardized,

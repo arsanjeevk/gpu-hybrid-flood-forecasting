@@ -4,6 +4,8 @@ defaults:
   - jax_solver: shallow_water
   - model: residual_cnn
   - hybrid: coupled
+  - platform: colab_t4
+  - comparison: v1_v2_t4
   - benchmark: frameworks
   - viz: report
   - experiment: baseline

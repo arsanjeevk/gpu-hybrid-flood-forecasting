@@ -1,18 +1,18 @@
 name: matched_residual_unet
 
-# Publication results must use a GPU visible to both frameworks. Set
-# require_gpu=false and allow_cpu=true only for a labelled implementation
-# smoke test; CPU results must not be used in the GPU comparison chapter.
+# Legacy framework microbenchmark retained for diagnostics. The active research
+# comparison is config/comparison/v1_v2_t4.yaml.
 require_gpu: true
 allow_cpu: false
+required_gpu_name: T4
 
 input:
   height: 128
   width: 128
   channels: 6
-batch_sizes: [1, 4, 8, 16]
-warmup_iterations: 10
-measured_iterations: 50
+batch_sizes: [1, 2, 4]
+warmup_iterations: 5
+measured_iterations: 20
 
 torch:
   compile: true

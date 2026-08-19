@@ -28,6 +28,8 @@ SOLVER_COLORS = {
     "anuga": "#0072B2",
     "jax": "#D55E00",
     "hybrid": "#009E73",
+    "v1": "#0072B2",
+    "v2": "#D55E00",
 }
 
 

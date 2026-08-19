@@ -127,8 +127,8 @@ def plot_flood_depth_comparison(
     key_times_s: Sequence[float],
     output_base: str | Path,
 ) -> tuple[Path, Path]:
-    """Plot synchronized ANUGA, JAX, and hybrid flood-depth maps."""
-    sources = ("anuga", "jax", "hybrid")
+    """Plot synchronized reference and forecast flood-depth maps."""
+    sources = tuple(str(value) for value in comparison.source.values)
     selected = comparison.sel(time=list(key_times_s), method="nearest")
     depth = selected["depth"]
     valid = depth.values[np.isfinite(depth.values)]
@@ -162,31 +162,35 @@ def plot_spatial_error_maps(
     key_times_s: Sequence[float],
     output_base: str | Path,
 ) -> tuple[Path, Path]:
-    """Plot hybrid-minus-ANUGA depth error centered exactly at zero."""
+    """Plot each forecast-minus-ANUGA depth error centered at zero."""
     selected = comparison.sel(time=list(key_times_s), method="nearest")
-    error = selected.depth.sel(source="hybrid") - selected.depth.sel(source="anuga")
+    forecast_sources = [str(value) for value in selected.source.values if str(value) != "anuga"]
+    if not forecast_sources:
+        raise ValueError("At least one non-ANUGA forecast source is required.")
+    error = selected.depth.sel(source=forecast_sources) - selected.depth.sel(source="anuga")
     finite = np.abs(error.values[np.isfinite(error.values)])
     limit = max(1.0e-5, float(np.percentile(finite, 99)))
     norm = TwoSlopeNorm(vmin=-limit, vcenter=0.0, vmax=limit)
     figure, axes = plt.subplots(
-        1,
+        len(forecast_sources),
         len(key_times_s),
-        figsize=(DOUBLE_COLUMN_WIDTH, 2.5),
+        figsize=(DOUBLE_COLUMN_WIDTH, 2.25 * len(forecast_sources)),
         constrained_layout=True,
         squeeze=False,
     )
     image = None
-    for index, time_s in enumerate(selected.time.values):
-        axis = axes[0, index]
-        image = axis.imshow(
-            error.isel(time=index),
-            origin="lower",
-            extent=_extent(comparison),
-            cmap=RESIDUAL_CMAP,
-            norm=norm,
-        )
-        _map_axis(axis, f"{float(time_s) / 60:.0f} min")
-    figure.colorbar(image, ax=axes, label="Hybrid − ANUGA depth (m)", shrink=0.85)
+    for row, source in enumerate(forecast_sources):
+        for index, time_s in enumerate(selected.time.values):
+            axis = axes[row, index]
+            image = axis.imshow(
+                error.sel(source=source).isel(time=index),
+                origin="lower",
+                extent=_extent(comparison),
+                cmap=RESIDUAL_CMAP,
+                norm=norm,
+            )
+            _map_axis(axis, f"{source.upper()} − ANUGA — {float(time_s) / 60:.0f} min")
+    figure.colorbar(image, ax=axes, label="Forecast − ANUGA depth (m)", shrink=0.85)
     return save_figure_pair(figure, output_base)
 
 
@@ -213,12 +217,12 @@ def plot_hydrographs(
     time_minutes = comparison.time.values / 60.0
     for axis, (name, (x, y)) in zip(axes[:, 0], monitoring_points.items(), strict=True):
         point = comparison[variable].sel(x=x, y=y, method="nearest")
-        for source in ("anuga", "jax", "hybrid"):
+        for source in (str(value) for value in comparison.source.values):
             axis.plot(
                 time_minutes,
                 point.sel(source=source),
                 label=source.upper(),
-                color=SOLVER_COLORS[source],
+                color=SOLVER_COLORS.get(source),
             )
         axis.set_title(
             f"{name} ({float(point.x):.0f} E, {float(point.y):.0f} N)",
@@ -227,7 +231,7 @@ def plot_hydrographs(
         axis.set_ylabel("Depth (m)" if variable == "depth" else variable)
         axis.grid(True)
     axes[-1, 0].set_xlabel("Simulation time (min)")
-    axes[0, 0].legend(ncol=3, frameon=False)
+    axes[0, 0].legend(ncol=min(3, comparison.sizes["source"]), frameon=False)
     return save_figure_pair(figure, output_base)
 
 
@@ -377,4 +381,58 @@ def plot_framework_benchmark(
     device_types = sorted(set(results["device_type"].astype(str)))
     figure.suptitle(f"Matched residual U-Net performance ({'/'.join(device_types).upper()})")
     axes[0].legend(frameon=False)
+    return save_figure_pair(figure, output_base)
+
+
+def plot_v1_v2_benchmark(
+    results: pd.DataFrame,
+    output_base: str | Path,
+) -> tuple[Path, Path]:
+    """Plot same-T4 end-to-end time and its measured stage composition."""
+    required = {
+        "version",
+        "physics_execution_s",
+        "feature_execution_s",
+        "ai_inference_s",
+        "postprocess_execution_s",
+        "end_to_end_steady_s",
+    }
+    missing = required.difference(results.columns)
+    if missing:
+        raise ValueError(f"V1/V2 benchmark table is missing columns: {sorted(missing)}")
+    versions = ("V1", "V2")
+    grouped = results.groupby("version")
+    means = grouped.mean(numeric_only=True).reindex(versions)
+    standard_deviation = grouped["end_to_end_steady_s"].std(ddof=1).reindex(versions)
+    if means.isna().any().any():
+        raise ValueError("Both V1 and V2 measurements are required.")
+    stages = (
+        ("physics_execution_s", "Physics", "#0072B2"),
+        ("feature_execution_s", "Feature assembly", "#E69F00"),
+        ("ai_inference_s", "PyTorch inference", "#009E73"),
+        ("postprocess_execution_s", "Postprocess", "#CC79A7"),
+    )
+    figure, axes = plt.subplots(1, 2, figsize=(DOUBLE_COLUMN_WIDTH, 2.8), constrained_layout=True)
+    positions = np.arange(2)
+    axes[0].bar(
+        positions,
+        means["end_to_end_steady_s"],
+        yerr=standard_deviation,
+        capsize=3,
+        color=(SOLVER_COLORS["v1"], SOLVER_COLORS["v2"]),
+    )
+    axes[0].set_xticks(positions, versions)
+    axes[0].set(title="Steady-state forecast runtime", ylabel="Wall-clock time (s)")
+    bottom = np.zeros(2)
+    for column, label, color in stages:
+        values = means[column].to_numpy()
+        axes[1].bar(positions, values, bottom=bottom, label=label, color=color)
+        bottom += values
+    axes[1].set_xticks(positions, versions)
+    axes[1].set(title="Measured runtime composition", ylabel="Wall-clock time (s)")
+    axes[1].legend(frameon=False, fontsize=6)
+    for axis in axes:
+        axis.set_ylim(bottom=0)
+        axis.grid(True, axis="y")
+    figure.suptitle("Matched V1 versus V2 forecast on NVIDIA T4")
     return save_figure_pair(figure, output_base)

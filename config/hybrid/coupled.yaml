@@ -1,10 +1,11 @@
 name: coupled_forecast
 
 inputs:
-  raw_jax: data/processed/jax_solver_raw.nc
+  v1_raw: data/processed/v1_numpy_solver_raw.nc
+  v2_raw: data/processed/v2_jax_solver_raw.nc
   anuga: data/processed/anuga_baseline.nc
   residual_dataset: data/processed/residual_training_dataset.npz
-  checkpoint: data/outputs/jax_runs/residual_net_best.msgpack
+  checkpoint: data/outputs/torch_runs/residual_net_best.pt
 
 rollout:
   start_time_s: null
@@ -25,4 +26,4 @@ rollout:
 execution:
   require_gpu: true
 
-output: data/processed/comparison_rollout.nc
+output: data/processed/comparison_v1_v2.nc

@@ -55,10 +55,12 @@ def animate_flood_depth_comparison(
     fps: float = 6.0,
     frame_stride: int = 1,
 ) -> tuple[Path, Path]:
-    """Export synchronized ANUGA/JAX/hybrid flood-depth animations."""
+    """Export synchronized reference/V1/V2 flood-depth animations."""
     if fps <= 0 or frame_stride < 1:
         raise ValueError("Animation FPS and frame stride must be positive.")
-    sources = ("anuga", "jax", "hybrid")
+    sources = tuple(str(value) for value in comparison.source.values)
+    if len(sources) != 3:
+        raise ValueError("The synchronized animation requires exactly three sources.")
     depth = comparison.depth
     finite = depth.values[np.isfinite(depth.values)]
     vmax = max(1.0e-4, float(np.percentile(finite, 99.5)))
@@ -126,10 +128,16 @@ def animate_residual_correction(
     fps: float = 6.0,
     frame_stride: int = 1,
 ) -> tuple[Path, Path]:
-    """Animate the accumulated hybrid-minus-raw-JAX depth correction field."""
+    """Animate the V2-minus-V1 corrected-depth difference field."""
     if fps <= 0 or frame_stride < 1:
         raise ValueError("Animation FPS and frame stride must be positive.")
-    residual = comparison.depth.sel(source="hybrid") - comparison.depth.sel(source="jax")
+    sources = set(str(value) for value in comparison.source.values)
+    if {"v1", "v2"}.issubset(sources):
+        residual = comparison.depth.sel(source="v2") - comparison.depth.sel(source="v1")
+        label = "V2 − V1 depth (m)"
+    else:
+        residual = comparison.depth.sel(source="hybrid") - comparison.depth.sel(source="jax")
+        label = "Hybrid − raw JAX depth (m)"
     finite = np.abs(residual.values[np.isfinite(residual.values)])
     limit = max(1.0e-5, float(np.percentile(finite, 99)))
     norm = SymLogNorm(
@@ -167,14 +175,14 @@ def animate_residual_correction(
         origin="lower",
         extent=extent,
     )
-    figure.colorbar(image, ax=axis, label="Hybrid − raw JAX depth (m)")
+    figure.colorbar(image, ax=axis, label=label)
     mp4_path, gif_path = _paths(output_base)
     mp4_writer, gif_writer = _writers(mp4_path, gif_path, fps)
     try:
         for time_index in range(0, comparison.sizes["time"], frame_stride):
             time_minutes = float(comparison.time.values[time_index]) / 60.0
             image.set_data(residual.isel(time=time_index))
-            axis.set_title(f"Residual correction — $t$ = {time_minutes:.0f} min")
+            axis.set_title(f"Forecast difference — $t$ = {time_minutes:.0f} min")
             rendered = _frame(figure)
             mp4_writer.append_data(rendered)
             gif_writer.append_data(rendered)

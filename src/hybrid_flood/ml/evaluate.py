@@ -74,6 +74,16 @@ def compute_test_metrics(
         domain_mask[None, :, :, None],
         predicted_residual.shape,
     )
+    finite_residuals = np.isfinite(predicted_residual) & np.isfinite(target_residual)
+    finite_depth = np.broadcast_to(
+        np.isfinite(raw_depth_t_plus_1)[..., None], predicted_residual.shape
+    )
+    invalid_count = int(np.count_nonzero(expanded_mask & ~(finite_residuals & finite_depth)))
+    if invalid_count:
+        raise ValueError(
+            f"Evaluation domain contains {invalid_count} non-finite predicted, target, "
+            "or raw-depth values. Use a common finite V1/V2/reference mask."
+        )
     error = predicted_residual - target_residual
     valid_error = error[expanded_mask].reshape(-1, predicted_residual.shape[-1])
     metrics: dict[str, float | int] = {

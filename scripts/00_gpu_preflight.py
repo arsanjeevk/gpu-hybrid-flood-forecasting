@@ -1,4 +1,4 @@
-"""Fail-fast validation of the publication GPU environment and configuration."""
+"""Fail-fast validation of the Google Colab NVIDIA T4 environment."""
 
 from __future__ import annotations
 
@@ -24,7 +24,6 @@ from hybrid_flood.benchmark.jax_vs_pytorch import _normalized_gpu_name  # noqa: 
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_DURATION_S = 10_800.0
-MINIMUM_FREE_GIB = 15.0
 
 
 def _load(relative_path: str):
@@ -48,7 +47,7 @@ def _nvidia_smi() -> dict[str, str]:
 
 
 def main() -> None:
-    """Validate one common CUDA GPU, inputs, duration, and writable capacity."""
+    """Validate one common T4, CUDA execution, inputs, and writable capacity."""
     errors: list[str] = []
     if sys.version_info[:2] != (3, 11):
         errors.append(f"Python 3.11 is required, found {sys.version.split()[0]}.")
@@ -73,6 +72,9 @@ def main() -> None:
         torch_name = torch.cuda.get_device_name(0)
         if _normalized_gpu_name(jax_name) != _normalized_gpu_name(torch_name):
             errors.append(f"Framework GPU names differ: JAX={jax_name!r}, PyTorch={torch_name!r}.")
+        required_name = str(_load("config/platform/colab_t4.yaml").required_gpu_name)
+        if required_name.upper() not in torch_name.upper():
+            errors.append(f"Expected NVIDIA {required_name}, found {torch_name!r}.")
         jax_value = jnp.ones((1024, 1024), dtype=jnp.float32)
         jax.block_until_ready(jax_value @ jax_value)
         torch_value = torch.ones((1024, 1024), device="cuda", dtype=torch.float32)
@@ -80,15 +82,15 @@ def main() -> None:
         del torch_value
 
     anuga_cfg = _load("config/anuga/baseline.yaml")
-    jax_cfg = _load("config/jax_solver/shallow_water.yaml")
+    comparison_cfg = _load("config/comparison/v1_v2_t4.yaml")
     model_cfg = _load("config/model/residual_cnn.yaml")
     hybrid_cfg = _load("config/hybrid/coupled.yaml")
     viz_cfg = _load("config/viz/report.yaml")
-    durations = (float(anuga_cfg.duration_s), float(jax_cfg.duration_s))
+    durations = (float(anuga_cfg.duration_s), float(comparison_cfg.common.duration_s))
     if durations != (EXPECTED_DURATION_S, EXPECTED_DURATION_S):
         errors.append(f"Both solver durations must be {EXPECTED_DURATION_S}, found {durations}.")
-    if not bool(jax_cfg.execution.require_gpu):
-        errors.append("JAX publication configuration does not require a GPU.")
+    if not bool(comparison_cfg.hardware.require_t4):
+        errors.append("The active comparison does not require a T4.")
     if not bool(model_cfg.execution.require_gpu):
         errors.append("Training publication configuration does not require a GPU.")
     if not bool(hybrid_cfg.execution.require_gpu):
@@ -97,21 +99,25 @@ def main() -> None:
         errors.append("A configured report-figure time lies outside the simulation window.")
     if EXPECTED_DURATION_S % float(anuga_cfg.outputstep_s) != 0:
         errors.append("ANUGA output interval does not divide the duration exactly.")
-    if EXPECTED_DURATION_S % float(jax_cfg.output_interval_s) != 0:
-        errors.append("JAX output interval does not divide the duration exactly.")
+    if EXPECTED_DURATION_S % float(comparison_cfg.common.output_interval_s) != 0:
+        errors.append("Forecast output interval does not divide the duration exactly.")
 
     for configured in (
         *anuga_cfg.inputs.values(),
-        *jax_cfg.inputs.values(),
+        comparison_cfg.common.inputs.dem,
+        comparison_cfg.common.inputs.roughness,
+        comparison_cfg.common.inputs.domain,
+        comparison_cfg.common.inputs.rainfall,
         model_cfg.inputs.rainfall,
     ):
         path = ROOT / str(configured)
         if not path.is_file():
             errors.append(f"Required input is missing: {path}.")
     free_gib = shutil.disk_usage(ROOT).free / 1024**3
-    if free_gib < MINIMUM_FREE_GIB:
+    minimum_free_gib = float(_load("config/platform/colab_t4.yaml").minimum_free_storage_gib)
+    if free_gib < minimum_free_gib:
         errors.append(
-            f"Only {free_gib:.2f} GiB is free; at least {MINIMUM_FREE_GIB} GiB is required."
+            f"Only {free_gib:.2f} GiB is free; at least {minimum_free_gib} GiB is required."
         )
 
     report = {
@@ -130,7 +136,7 @@ def main() -> None:
         "simulation_duration_s": EXPECTED_DURATION_S,
         "free_storage_gib": free_gib,
     }
-    output = ROOT / "data/outputs/gpu_preflight.json"
+    output = ROOT / "data/outputs/t4_preflight.json"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
     print(json.dumps(report, indent=2, sort_keys=True))

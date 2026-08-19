@@ -6,6 +6,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
+import pytest
 
 from hybrid_flood.ml.dataset import temporal_split_indices
 from hybrid_flood.ml.evaluate import compute_test_metrics
@@ -115,6 +116,18 @@ def test_perfect_correction_has_unit_csi_and_zero_error() -> None:
     assert metrics["depth_rmse"] == 0.0
     assert metrics["mae_all_channels"] == 0.0
     assert metrics["critical_success_index"] == 1.0
+
+
+def test_metrics_reject_nonfinite_values_inside_evaluation_domain() -> None:
+    """Invalid solver cells must not silently turn publication metrics into NaN."""
+    prediction = np.zeros((1, 2, 2, 3), dtype=np.float32)
+    target = np.zeros_like(prediction)
+    raw_depth = np.zeros((1, 2, 2), dtype=np.float32)
+    mask = np.ones((2, 2), dtype=bool)
+    prediction[0, 0, 0, 1] = np.nan
+
+    with pytest.raises(ValueError, match="common finite"):
+        compute_test_metrics(prediction, target, raw_depth, mask)
 
 
 def test_checkpoint_round_trip(tmp_path) -> None:

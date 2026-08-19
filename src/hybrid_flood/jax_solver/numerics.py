@@ -377,52 +377,54 @@ def integrate_to_outputs(
     *,
     max_steps: int,
 ) -> ScanResult:
-    """Integrate adaptively to fixed output times using one compiled ``lax.scan``."""
-    output_h = jnp.zeros((output_times_s.shape[0], *initial_state.h.shape), initial_state.h.dtype)
-    output_hu = jnp.zeros_like(output_h)
-    output_hv = jnp.zeros_like(output_h)
-    output_h = output_h.at[0].set(initial_state.h)
-    output_hu = output_hu.at[0].set(initial_state.hu)
-    output_hv = output_hv.at[0].set(initial_state.hv)
+    """Integrate adaptively to fixed output times without padded physics work.
 
-    carry = (
+    The outer ``lax.scan`` stacks one state per requested output time.  Within
+    each interval, ``lax.while_loop`` advances only until that target is
+    reached.  This avoids carrying the complete output cube through a scan of
+    ``max_steps`` iterations and avoids executing inactive padded iterations
+    after the three-hour horizon has completed.  ``max_steps`` remains a
+    deterministic safety cap and does not alter CFL-selected timesteps.
+    """
+    if output_times_s.ndim != 1 or output_times_s.shape[0] < 1:
+        raise ValueError("At least one one-dimensional output time is required.")
+
+    initial_carry = (
         initial_state,
         output_times_s[0],
-        jnp.array(1, dtype=jnp.int32),
-        SWEState(output_h, output_hu, output_hv),
         jnp.array(0, dtype=jnp.int32),
     )
 
-    def scan_body(carry_value, _):
-        state, time_s, output_index, outputs, steps_used = carry_value
-        active = output_index < output_times_s.shape[0]
+    def advance_to_target(carry_value, target_time):
+        def needs_step(value):
+            _, time_s, steps = value
+            return (time_s < target_time - 1.0e-7) & (steps < max_steps)
 
-        def advance(active_carry):
-            active_state, active_time, active_index, active_outputs, active_steps = active_carry
-            safe_index = jnp.minimum(active_index, output_times_s.shape[0] - 1)
-            target_time = output_times_s[safe_index]
-            dt = jnp.minimum(compute_cfl_dt(active_state, params), target_time - active_time)
-            next_state = finite_volume_step(active_state, params, dt, active_time)
-            next_time = active_time + dt
-            reached = next_time >= target_time - 1.0e-7
+        def advance(value):
+            state, time_s, steps = value
+            dt = jnp.minimum(compute_cfl_dt(state, params), target_time - time_s)
+            next_state = finite_volume_step(state, params, dt, time_s)
+            return next_state, time_s + dt, steps + 1
 
-            def record(output_state):
-                return SWEState(
-                    output_state.h.at[safe_index].set(next_state.h),
-                    output_state.hu.at[safe_index].set(next_state.hu),
-                    output_state.hv.at[safe_index].set(next_state.hv),
-                )
+        next_carry = jax.lax.while_loop(needs_step, advance, carry_value)
+        next_state, next_time, _ = next_carry
+        reached = next_time >= target_time - 1.0e-7
+        return next_carry, (next_state, reached)
 
-            next_outputs = jax.lax.cond(reached, record, lambda value: value, active_outputs)
-            next_index = active_index + reached.astype(jnp.int32)
-            return next_state, next_time, next_index, next_outputs, active_steps + 1
-
-        next_carry = jax.lax.cond(active, advance, lambda value: value, carry_value)
-        return next_carry, jnp.array(0, dtype=jnp.int8)
-
-    final_carry, _ = jax.lax.scan(scan_body, carry, xs=None, length=max_steps)
-    final_state, final_time, outputs_written, output_states, steps_used = final_carry
-    del final_state
+    final_carry, (scanned_states, reached) = jax.lax.scan(
+        advance_to_target,
+        initial_carry,
+        output_times_s[1:],
+    )
+    _, final_time, steps_used = final_carry
+    output_states = SWEState(
+        h=jnp.concatenate((initial_state.h[None], scanned_states.h), axis=0),
+        hu=jnp.concatenate((initial_state.hu[None], scanned_states.hu), axis=0),
+        hv=jnp.concatenate((initial_state.hv[None], scanned_states.hv), axis=0),
+    )
+    outputs_written = jnp.array(1, dtype=jnp.int32) + jnp.sum(
+        reached.astype(jnp.int32)
+    )
     return ScanResult(
         states=output_states,
         output_times_s=output_times_s,

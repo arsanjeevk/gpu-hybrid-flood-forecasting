@@ -25,10 +25,10 @@ def main(cfg: DictConfig) -> None:
     """Build and persist the Phase 5 residual dataset."""
     root = Path(get_original_cwd()).resolve()
     model_cfg = cfg.model
-    LOGGER.info("Aligning ANUGA and JAX fields and constructing one-step residual targets")
+    LOGGER.info("Aligning ANUGA and V1 NumPy fields and constructing residual targets")
     dataset = build_residual_dataset(
         _path(root, model_cfg.inputs.anuga),
-        _path(root, model_cfg.inputs.jax),
+        _path(root, model_cfg.inputs.forecast),
         _path(root, model_cfg.inputs.roughness),
         _path(root, model_cfg.inputs.rainfall),
         rainfall_scenario=model_cfg.inputs.rainfall_scenario,
@@ -36,7 +36,7 @@ def main(cfg: DictConfig) -> None:
         val_fraction=model_cfg.dataset.validation_fraction,
         permanently_dry_threshold_m=model_cfg.dataset.permanently_dry_threshold_m,
     )
-    expected_duration_s = float(cfg.jax_solver.duration_s)
+    expected_duration_s = float(cfg.comparison.common.duration_s)
     if not np.isclose(
         float(dataset.target_time_s[-1]),
         expected_duration_s,

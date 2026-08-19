@@ -1,9 +1,9 @@
 name: residual_cnn
-framework: flax
+framework: pytorch
 
 inputs:
   anuga: data/processed/anuga_baseline.nc
-  jax: data/processed/jax_solver_raw.nc
+  forecast: data/processed/v1_numpy_solver_raw.nc
   roughness: data/interim/roughness_epsg32643.gpkg
   rainfall: data/interim/rainfall_clean.parquet
   rainfall_scenario: 45rp_rain
@@ -30,7 +30,9 @@ training:
   warmup_epochs: 2
   weight_decay: 0.00001
   gradient_clip_norm: 1.0
-  batch_size: 4
+  # Conservative for a Colab T4 (nominally 16 GB) while retaining 128x128
+  # spatial patches. Increase only after measuring free memory in that runtime.
+  batch_size: 2
   patch_size: 128
   patches_per_sample: 4
   epochs: 100
@@ -51,7 +53,7 @@ execution:
   require_gpu: true
 
 outputs:
-  checkpoint: data/outputs/jax_runs/residual_net_best.msgpack
-  training_log: data/outputs/jax_runs/residual_net_training.csv
-  test_metrics: data/outputs/jax_runs/residual_net_test_metrics.json
-  run_metadata: data/outputs/jax_runs/residual_net_run.json
+  checkpoint: data/outputs/torch_runs/residual_net_best.pt
+  training_log: data/outputs/torch_runs/residual_net_training.csv
+  test_metrics: data/outputs/torch_runs/residual_net_test_metrics.json
+  run_metadata: data/outputs/torch_runs/residual_net_run.json

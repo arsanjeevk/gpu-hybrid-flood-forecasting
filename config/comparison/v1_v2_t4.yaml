@@ -1,0 +1,57 @@
+name: v1_v2_t4
+
+hardware:
+  require_t4: true
+  allow_cpu_smoke: false
+
+common:
+  duration_s: 10800.0
+  output_interval_s: 60.0
+  resolution_m: 50.0
+  max_steps: 20000
+  gravity_m_s2: 9.81
+  cfl: 0.45
+  dry_tolerance_m: 0.0001
+  max_dt_s: 10.0
+  inputs:
+    dem: data/synthetic_dem/dem.tif
+    roughness: data/interim/roughness_epsg32643.gpkg
+    domain: data/interim/domain_epsg32643.gpkg
+    rainfall: data/interim/rainfall_clean.parquet
+    rainfall_scenario: 45rp_rain
+  initial_condition:
+    depth_m: 0.0
+    x_velocity_m_s: 0.0
+    y_velocity_m_s: 0.0
+
+v1:
+  name: numpy_pytorch
+  physics_backend: numpy
+  ai_backend: pytorch_cuda
+  output: data/processed/v1_numpy_solver_raw.nc
+  metadata: data/outputs/v1_runs/solver_metadata.json
+
+v2:
+  name: jax_pytorch
+  physics_backend: jax
+  ai_backend: pytorch_cuda
+  output: data/processed/v2_jax_solver_raw.nc
+  metadata: data/outputs/v2_runs/solver_metadata.json
+
+accuracy:
+  depth_rmse_tolerance_m: 0.005
+  velocity_rmse_tolerance_m_s: 0.02
+  peak_depth_relative_tolerance: 0.05
+  arrival_time_tolerance_s: 120.0
+  flood_threshold_m: 0.01
+
+benchmark:
+  warmup_runs: 2
+  measured_runs: 10
+  monitor_interval_s: 0.2
+  include_jax_compile_in_cold_start: true
+  results_csv: data/outputs/benchmarks/v1_v2_t4.csv
+  metadata: data/outputs/benchmarks/v1_v2_t4.json
+  figure_base: data/outputs/figures/v1_v2_t4
+  report_directory: report/figures
+

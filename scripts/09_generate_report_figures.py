@@ -44,7 +44,7 @@ def _monitoring_points(comparison: xr.Dataset) -> dict[str, tuple[float, float]]
     peak_flat = int(np.nanargmax(depth))
     _, peak_y, peak_x = np.unravel_index(peak_flat, depth.shape)
     final_error = np.abs(
-        comparison.depth.sel(source="hybrid").isel(time=-1).values
+        comparison.depth.sel(source="v2").isel(time=-1).values
         - comparison.depth.sel(source="anuga").isel(time=-1).values
     )
     error_y, error_x = np.unravel_index(int(np.nanargmax(final_error)), final_error.shape)
@@ -53,7 +53,7 @@ def _monitoring_points(comparison: xr.Dataset) -> dict[str, tuple[float, float]]
             float(comparison.x.values[peak_x]),
             float(comparison.y.values[peak_y]),
         ),
-        "Largest final hybrid error": (
+        "Largest final V2 error": (
             float(comparison.x.values[error_x]),
             float(comparison.y.values[error_y]),
         ),
@@ -94,11 +94,11 @@ def main(cfg: DictConfig) -> None:
     root = Path(get_original_cwd()).resolve()
     viz_cfg = cfg.viz
     anuga_duration_s = float(cfg.anuga.duration_s)
-    jax_duration_s = float(cfg.jax_solver.duration_s)
-    if not np.isclose(anuga_duration_s, jax_duration_s, rtol=0.0, atol=1.0e-9):
+    forecast_duration_s = float(cfg.comparison.common.duration_s)
+    if not np.isclose(anuga_duration_s, forecast_duration_s, rtol=0.0, atol=1.0e-9):
         raise ValueError(
             "ANUGA and JAX simulation durations must match before report figures "
-            f"are generated ({anuga_duration_s} != {jax_duration_s})."
+            f"are generated ({anuga_duration_s} != {forecast_duration_s})."
         )
     if any(
         float(time_s) < 0.0 or float(time_s) > anuga_duration_s for time_s in viz_cfg.key_times_s

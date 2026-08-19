@@ -1,0 +1,18 @@
+defaults:
+  - v1_v2_t4
+  - _self_
+
+name: v1_v2_t4_adaptive_output_scan
+
+optimization:
+  identifier: adaptive_output_scan_v1
+  scope: jax_physics_execution_only
+  description: >-
+    Scan over requested output times and advance each interval with an adaptive
+    while-loop, retaining the unchanged HLL flux, hydrostatic reconstruction,
+    CFL rule, wetting/drying treatment, rainfall, roughness, and boundaries.
+
+benchmark:
+  results_csv: data/outputs/benchmarks/v1_v2_t4_optimized.csv
+  metadata: data/outputs/benchmarks/v1_v2_t4_optimized.json
+  figure_base: data/outputs/figures/v1_v2_t4_optimized
